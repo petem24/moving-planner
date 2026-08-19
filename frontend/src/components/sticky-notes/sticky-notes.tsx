@@ -119,12 +119,12 @@ function ConnectedStickyNotes() {
         </button>
       ) : (
         <div
-          aria-label="Notes — swipe to see more"
-          className="-mx-3 flex snap-x snap-mandatory gap-5 overflow-x-auto px-3 pt-3 pb-4 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pt-0 sm:pb-0 lg:grid-cols-3"
+          aria-label="Notes"
+          className="columns-1 gap-5 sm:columns-2"
           role="region"
         >
           {notes.map((note) => (
-            <div className="w-[88%] shrink-0 snap-start [&>article]:h-full sm:w-auto" key={note._id}>
+            <div className="mb-5 break-inside-avoid" key={note._id}>
               <StickyNoteCard note={note} onDelete={deleteNote} onEdit={openEdit} />
             </div>
           ))}

@@ -1,0 +1,56 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Convex and Cloudflare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generated Convex types are intentionally ignored by git, but the
+      # frontend imports them during its TypeScript build.
+      - name: Generate Convex types
+        run: pnpm --filter @moving/backend codegen
+
+      # Convex supplies VITE_CONVEX_URL to the build command, ensuring the
+      # uploaded frontend always targets the backend deployed by this run.
+      - name: Deploy Convex and build frontend
+        run: >-
+          pnpm --filter @moving/backend exec convex deploy
+          --cmd "pnpm --dir ../frontend build"
+          --cmd-url-env-var-name VITE_CONVEX_URL
+
+      - name: Deploy frontend to Cloudflare Workers
+        run: pnpm --dir frontend deploy

@@ -1,0 +1,16 @@
+{
+  "name": "@moving/backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "codegen": "convex codegen",
+    "deploy": "convex deploy"
+  },
+  "dependencies": {
+    "convex": "^1.44.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

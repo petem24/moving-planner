@@ -1,0 +1,419 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Typefaces
+   - Inter                → UI / body
+   - Bricolage Grotesque  → display headings (wght 200–800)
+   - JetBrains Mono       → numerals, dates, box IDs, dimensions */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/shantell-sans";
+@import "@fontsource-variable/bricolage-grotesque";
+
+@custom-variant dark (&:is(.dark *));
+
+/* =============================================================================
+   1. PRIMITIVES
+   Raw colour ramps. Never reference these directly in components — always go
+   through a semantic token from section 2 so light/dark stays correct.
+   ============================================================================= */
+:root {
+  /* Fir — brand. Deep Douglas-fir green: wet, coniferous, Cascadian. */
+  --fir-50: oklch(0.972 0.014 158);
+  --fir-100: oklch(0.945 0.028 158);
+  --fir-200: oklch(0.895 0.052 157);
+  --fir-300: oklch(0.825 0.078 157);
+  --fir-400: oklch(0.72 0.098 157);
+  --fir-500: oklch(0.605 0.098 157);
+  --fir-600: oklch(0.51 0.09 157);
+  --fir-700: oklch(0.435 0.079 158);
+  --fir-800: oklch(0.365 0.065 159);
+  --fir-900: oklch(0.3 0.052 160);
+  --fir-950: oklch(0.205 0.036 161);
+
+  /* Fog — cool neutral. Replaces grey everywhere; keeps the UI overcast and
+     slightly damp rather than clinical. */
+  --fog-50: oklch(0.985 0.003 240);
+  --fog-100: oklch(0.968 0.005 240);
+  --fog-200: oklch(0.933 0.008 238);
+  --fog-300: oklch(0.882 0.011 238);
+  --fog-400: oklch(0.755 0.014 236);
+  --fog-500: oklch(0.615 0.016 235);
+  --fog-600: oklch(0.505 0.018 234);
+  --fog-700: oklch(0.405 0.018 234);
+  --fog-800: oklch(0.305 0.017 234);
+  --fog-900: oklch(0.215 0.015 234);
+  --fog-950: oklch(0.15 0.013 234);
+
+  /* Category hues — one per decision we make about an object.
+     Chosen to stay distinguishable at badge size and in both modes. */
+  --fern-500: oklch(0.6 0.125 135); /* keep     */
+  --sound-500: oklch(0.55 0.115 240); /* ship     */
+  --madrona-500: oklch(0.7 0.14 62); /* sell     */
+  --huckleberry-500: oklch(0.54 0.145 305); /* donate   */
+  --salmon-500: oklch(0.6 0.175 32); /* bin      */
+}
+
+/* =============================================================================
+   2. SEMANTIC TOKENS
+   What components actually consume. shadcn's variable contract, extended with
+   the move-specific category + feedback scales.
+   ============================================================================= */
+:root {
+  /* Surfaces & text */
+  --background: var(--fog-50);
+  --foreground: oklch(0.19 0.016 236);
+  --card: oklch(0.995 0.002 240);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.995 0.002 240);
+  --popover-foreground: var(--foreground);
+
+  /* Brand */
+  --primary: var(--fir-700);
+  --primary-foreground: oklch(0.98 0.008 158);
+  --secondary: oklch(0.935 0.009 236);
+  --secondary-foreground: oklch(0.25 0.02 236);
+  --muted: oklch(0.952 0.007 238);
+  --muted-foreground: oklch(0.485 0.018 236);
+  --accent: oklch(0.915 0.03 165);
+  --accent-foreground: oklch(0.25 0.035 162);
+
+  /* Lines & focus */
+  --border: oklch(0.875 0.01 236);
+  --input: oklch(0.875 0.01 236);
+  --ring: var(--fir-700);
+
+  /* Feedback */
+  --destructive: oklch(0.565 0.19 28);
+  --destructive-foreground: oklch(0.98 0.005 240);
+  --success: oklch(0.52 0.1 152);
+  --success-foreground: oklch(0.98 0.005 240);
+  --warning: oklch(0.7 0.135 62);
+  --warning-foreground: oklch(0.22 0.025 60);
+  --info: oklch(0.53 0.115 240);
+  --info-foreground: oklch(0.98 0.005 240);
+
+  /* Move categories — every item ends up in exactly one of these.
+     Each has: solid (dots, bars, fills) · subtle (tinted surface) · strong (text on subtle). */
+  --keep: var(--fern-500);
+  --keep-subtle: oklch(0.955 0.03 135);
+  --keep-strong: oklch(0.44 0.095 135);
+
+  --ship: var(--sound-500);
+  --ship-subtle: oklch(0.955 0.026 240);
+  --ship-strong: oklch(0.44 0.11 240);
+
+  --sell: var(--madrona-500);
+  --sell-subtle: oklch(0.96 0.04 68);
+  --sell-strong: oklch(0.475 0.105 55);
+
+  --donate: var(--huckleberry-500);
+  --donate-subtle: oklch(0.955 0.03 305);
+  --donate-strong: oklch(0.44 0.135 305);
+
+  --bin: var(--salmon-500);
+  --bin-subtle: oklch(0.955 0.03 32);
+  --bin-strong: oklch(0.47 0.16 32);
+
+  /* Charts — brand first, then the category hues, so a chart of "what we're
+     doing with our stuff" is legible without a bespoke palette. */
+  --chart-1: var(--fir-600);
+  --chart-2: var(--sound-500);
+  --chart-3: var(--madrona-500);
+  --chart-4: var(--huckleberry-500);
+  --chart-5: var(--salmon-500);
+
+  /* Sidebar */
+  --sidebar: oklch(0.968 0.006 238);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--fir-700);
+  --sidebar-primary-foreground: oklch(0.98 0.008 158);
+  --sidebar-accent: oklch(0.935 0.009 236);
+  --sidebar-accent-foreground: oklch(0.25 0.02 236);
+  --sidebar-border: oklch(0.89 0.009 236);
+  --sidebar-ring: var(--fir-700);
+
+  /* Geometry */
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: oklch(0.165 0.014 236);
+  --foreground: oklch(0.95 0.008 238);
+  --card: oklch(0.205 0.016 236);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.205 0.016 236);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.74 0.115 158);
+  --primary-foreground: oklch(0.18 0.02 236);
+  --secondary: oklch(0.275 0.018 236);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.245 0.016 236);
+  --muted-foreground: oklch(0.715 0.015 238);
+  --accent: oklch(0.305 0.035 165);
+  --accent-foreground: var(--foreground);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.74 0.115 158);
+
+  --destructive: oklch(0.65 0.175 28);
+  --destructive-foreground: oklch(0.18 0.02 236);
+  --success: oklch(0.72 0.13 152);
+  --success-foreground: oklch(0.18 0.02 236);
+  --warning: oklch(0.79 0.135 66);
+  --warning-foreground: oklch(0.18 0.02 236);
+  --info: oklch(0.7 0.115 240);
+  --info-foreground: oklch(0.18 0.02 236);
+
+  --keep: oklch(0.74 0.14 135);
+  --keep-subtle: oklch(0.29 0.05 135);
+  --keep-strong: oklch(0.86 0.12 135);
+
+  --ship: oklch(0.7 0.115 240);
+  --ship-subtle: oklch(0.29 0.05 240);
+  --ship-strong: oklch(0.84 0.085 240);
+
+  --sell: oklch(0.79 0.135 66);
+  --sell-subtle: oklch(0.3 0.05 60);
+  --sell-strong: oklch(0.87 0.11 70);
+
+  --donate: oklch(0.7 0.14 305);
+  --donate-subtle: oklch(0.29 0.05 305);
+  --donate-strong: oklch(0.84 0.1 305);
+
+  --bin: oklch(0.68 0.165 32);
+  --bin-subtle: oklch(0.3 0.06 32);
+  --bin-strong: oklch(0.82 0.12 32);
+
+  --chart-1: oklch(0.74 0.115 158);
+  --chart-2: oklch(0.7 0.115 240);
+  --chart-3: oklch(0.79 0.135 66);
+  --chart-4: oklch(0.7 0.14 305);
+  --chart-5: oklch(0.68 0.165 32);
+
+  --sidebar: oklch(0.195 0.016 236);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(0.74 0.115 158);
+  --sidebar-primary-foreground: oklch(0.18 0.02 236);
+  --sidebar-accent: oklch(0.275 0.018 236);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.74 0.115 158);
+}
+
+/* =============================================================================
+   3. THEME — semantic tokens exposed as Tailwind utilities.
+   `inline` keeps the var reference in the utility, which is what makes the
+   `.dark` swap above work without regenerating classes.
+   ============================================================================= */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-keep: var(--keep);
+  --color-keep-subtle: var(--keep-subtle);
+  --color-keep-strong: var(--keep-strong);
+  --color-ship: var(--ship);
+  --color-ship-subtle: var(--ship-subtle);
+  --color-ship-strong: var(--ship-strong);
+  --color-sell: var(--sell);
+  --color-sell-subtle: var(--sell-subtle);
+  --color-sell-strong: var(--sell-strong);
+  --color-donate: var(--donate);
+  --color-donate-subtle: var(--donate-subtle);
+  --color-donate-strong: var(--donate-strong);
+  --color-bin: var(--bin);
+  --color-bin-subtle: var(--bin-subtle);
+  --color-bin-strong: var(--bin-strong);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Brand ramp, for the rare case a component needs a specific step. */
+  --color-fir-50: var(--fir-50);
+  --color-fir-100: var(--fir-100);
+  --color-fir-200: var(--fir-200);
+  --color-fir-300: var(--fir-300);
+  --color-fir-400: var(--fir-400);
+  --color-fir-500: var(--fir-500);
+  --color-fir-600: var(--fir-600);
+  --color-fir-700: var(--fir-700);
+  --color-fir-800: var(--fir-800);
+  --color-fir-900: var(--fir-900);
+  --color-fir-950: var(--fir-950);
+
+  --color-fog-50: var(--fog-50);
+  --color-fog-100: var(--fog-100);
+  --color-fog-200: var(--fog-200);
+  --color-fog-300: var(--fog-300);
+  --color-fog-400: var(--fog-400);
+  --color-fog-500: var(--fog-500);
+  --color-fog-600: var(--fog-600);
+  --color-fog-700: var(--fog-700);
+  --color-fog-800: var(--fog-800);
+  --color-fog-900: var(--fog-900);
+  --color-fog-950: var(--fog-950);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+}
+
+/* =============================================================================
+   4. SCALE — type, elevation, motion. Static values, so a plain @theme block.
+   ============================================================================= */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+  /* Handwriting — sticky notes only. Nothing structural should use this.
+     Shantell Sans over a script face: marker-drawn, but with the x-height and
+     letter spacing of a text face, so a whole note stays readable. */
+  --font-hand: "Shantell Sans Variable", "Comic Sans MS", ui-rounded, cursive;
+
+  /* Inter's contextual alternates plus its single-storey-friendly figures; the
+     display face carries its own weight, so no variation settings needed. */
+  --font-sans--font-feature-settings: "cv11", "ss01";
+  --font-mono--font-feature-settings: "tnum";
+
+  /* Display scale — headings only. Body text keeps Tailwind's defaults. */
+  --text-display-xs: 1.75rem;
+  --text-display-xs--line-height: 1.15;
+  --text-display-xs--letter-spacing: -0.02em;
+  --text-display-xs--font-weight: 600;
+
+  --text-display-sm: 2.25rem;
+  --text-display-sm--line-height: 1.1;
+  --text-display-sm--letter-spacing: -0.025em;
+  --text-display-sm--font-weight: 600;
+
+  --text-display-md: 3rem;
+  --text-display-md--line-height: 1.05;
+  --text-display-md--letter-spacing: -0.03em;
+  --text-display-md--font-weight: 600;
+
+  --text-display-lg: 4rem;
+  --text-display-lg--line-height: 1;
+  --text-display-lg--letter-spacing: -0.035em;
+  --text-display-lg--font-weight: 600;
+
+  --text-display-xl: 5.5rem;
+  --text-display-xl--line-height: 0.95;
+  --text-display-xl--letter-spacing: -0.04em;
+  --text-display-xl--font-weight: 600;
+
+  /* Eyebrow / label text — small, spaced, uppercase-friendly. */
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.16em;
+  --text-eyebrow--font-weight: 500;
+
+  /* Elevation — fog-tinted, never neutral black. */
+  --shadow-xs: 0 1px 2px 0 oklch(0.15 0.013 234 / 0.06);
+  --shadow-sm: 0 1px 2px 0 oklch(0.15 0.013 234 / 0.06), 0 1px 3px 0 oklch(0.15 0.013 234 / 0.08);
+  --shadow-md: 0 2px 4px -1px oklch(0.15 0.013 234 / 0.06), 0 4px 10px -2px oklch(0.15 0.013 234 / 0.1);
+  --shadow-lg: 0 4px 8px -2px oklch(0.15 0.013 234 / 0.07), 0 12px 24px -4px oklch(0.15 0.013 234 / 0.12);
+  --shadow-xl: 0 8px 16px -4px oklch(0.15 0.013 234 / 0.08), 0 24px 48px -8px oklch(0.15 0.013 234 / 0.14);
+
+  /* Motion */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* =============================================================================
+   5. BASE
+   ============================================================================= */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply m-0 min-w-[320px] bg-background font-sans text-foreground antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* =============================================================================
+   6. UTILITIES
+   ============================================================================= */
+
+/* Small caps-ish label above a heading. */
+@utility eyebrow {
+  @apply text-eyebrow uppercase text-muted-foreground;
+}
+
+/* Numbers that shouldn't jitter as they change — counts, dates, weights. */
+@utility numeric {
+  @apply font-mono tabular-nums;
+}

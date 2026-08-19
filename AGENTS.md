@@ -1,0 +1,2 @@
+# Product Context
+Me (Peter) and my partner (Erin) are moving from Liverpool, England to Portland, Oregon. Erin is moving earlier than me on October 4th 2026 and I am moving later in the Spring. I am going travelling while I wait on leaving October 7th. We need a home for organising our move and what we are selling, shipping, donating and throwing away. We need to manage the logistics and coordination of our move. We will be shipping boxes before we leave in October and then one when I move in the Spring.

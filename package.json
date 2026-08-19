@@ -1,0 +1,10 @@
+{
+  "name": "moving",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "dev:backend": "pnpm --filter @moving/backend dev",
+    "dev:frontend": "pnpm --filter @moving/frontend dev",
+    "dev": "./scripts/dev-tmux.sh"
+  }
+}

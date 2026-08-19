@@ -1,0 +1,19 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+**/dist/
+
+# Convex local configuration and generated API types
+**/.env.local
+**/convex/_generated/
+
+# Private inventory data used only to seed Peter and Erin's deployment
+/backend/convex/inventorySeed.ts
+
+# Editor and local tooling
+.idea/
+.vscode/
+*.swp
+*.swo

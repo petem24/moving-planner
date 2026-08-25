@@ -5,6 +5,14 @@ import { requireAuthenticatedUser } from "./auth";
 const MAX_TITLE_LENGTH = 120;
 const MAX_CONTENT_LENGTH = 2_000;
 
+const noteColor = v.union(
+  v.literal("butter"),
+  v.literal("mint"),
+  v.literal("sky"),
+  v.literal("blush"),
+  v.literal("lavender"),
+);
+
 function cleanText(value: string, field: string, maxLength: number) {
   const cleaned = value.trim();
 
@@ -36,6 +44,7 @@ export const create = mutation({
   args: {
     title: v.string(),
     content: v.string(),
+    color: noteColor,
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx);
@@ -45,6 +54,7 @@ export const create = mutation({
     return await ctx.db.insert("stickyNotes", {
       title: cleanText(args.title, "Title", MAX_TITLE_LENGTH),
       content: cleanText(args.content, "Note", MAX_CONTENT_LENGTH),
+      color: args.color,
       createdAt: now,
       updatedAt: now,
     });
@@ -56,6 +66,7 @@ export const update = mutation({
     id: v.id("stickyNotes"),
     title: v.string(),
     content: v.string(),
+    color: noteColor,
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx);
@@ -69,6 +80,7 @@ export const update = mutation({
     await ctx.db.patch(args.id, {
       title: cleanText(args.title, "Title", MAX_TITLE_LENGTH),
       content: cleanText(args.content, "Note", MAX_CONTENT_LENGTH),
+      color: args.color,
       updatedAt: Date.now(),
     });
   },

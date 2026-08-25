@@ -2,19 +2,22 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "radix-ui";
 
 import type { Doc } from "../../../../backend/convex/_generated/dataModel";
-import { paperFor, paperStyle } from "./paper";
+import {
+  DEFAULT_PAPER_COLOR,
+  paperFor,
+  paperStocks,
+  paperStyle,
+  type PaperColor,
+} from "./paper";
 import { Tape } from "./sticky-note-card";
 
 type StickyNoteEditorProps = {
   note?: Doc<"stickyNotes">;
   isSaving: boolean;
   error: string | null;
-  onSave: (values: { title: string; content: string }) => Promise<void>;
+  onSave: (values: { title: string; content: string; color: PaperColor }) => Promise<void>;
   onCancel: () => void;
 };
-
-/** A blank note off the top of the pad — same paper as the one you're editing. */
-const blankStock = paperFor("blank");
 
 export function StickyNoteEditor({
   note,
@@ -25,16 +28,20 @@ export function StickyNoteEditor({
 }: StickyNoteEditorProps) {
   const [title, setTitle] = useState(note?.title ?? "");
   const [content, setContent] = useState(note?.content ?? "");
-  const { stock } = note ? paperFor(note._id) : blankStock;
+  const [color, setColor] = useState<PaperColor>(
+    note?.color ?? (note ? paperFor(note._id).stock.name : DEFAULT_PAPER_COLOR),
+  );
+  const { stock } = paperFor(note?._id ?? "blank", color);
 
   useEffect(() => {
     setTitle(note?.title ?? "");
     setContent(note?.content ?? "");
+    setColor(note?.color ?? (note ? paperFor(note._id).stock.name : DEFAULT_PAPER_COLOR));
   }, [note]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSave({ title, content });
+    await onSave({ title, content, color });
   };
 
   const pen = "w-full bg-transparent font-hand outline-none placeholder:text-current/40";
@@ -81,6 +88,26 @@ export function StickyNoteEditor({
               required
               value={content}
             />
+
+            <fieldset className="mt-4">
+              <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-current/60">
+                Colour
+              </legend>
+              <div className="flex gap-3">
+                {paperStocks.map((paper) => (
+                  <button
+                    aria-label={`${paper.label} note colour`}
+                    aria-pressed={color === paper.name}
+                    className="size-8 rounded-full border-2 border-black/15 shadow-sm outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 aria-[pressed=true]:ring-2 aria-[pressed=true]:ring-current aria-[pressed=true]:ring-offset-2"
+                    key={paper.name}
+                    onClick={() => setColor(paper.name)}
+                    style={{ background: paper.paper }}
+                    title={paper.label}
+                    type="button"
+                  />
+                ))}
+              </div>
+            </fieldset>
 
             {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 

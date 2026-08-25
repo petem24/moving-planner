@@ -16,7 +16,7 @@ const paperButton =
   "grid size-7 place-items-center rounded-full text-current/60 transition-colors hover:bg-black/8 hover:text-current focus-visible:bg-black/8 focus-visible:outline-none [&_svg]:size-3.5";
 
 export function StickyNoteCard({ note, onEdit, onDelete }: StickyNoteCardProps) {
-  const { stock, tilt } = paperFor(note._id);
+  const { stock, tilt } = paperFor(note._id, note.color);
 
   return (
     <article

@@ -8,6 +8,7 @@ import { api } from "../../../../backend/convex/_generated/api";
 import type { Doc } from "../../../../backend/convex/_generated/dataModel";
 import { StickyNoteCard } from "./sticky-note-card";
 import { StickyNoteEditor } from "./sticky-note-editor";
+import type { PaperColor } from "./paper";
 
 type StickyNotesProps = {
   /** Allows the homepage to render a useful setup state without a Convex provider. */
@@ -52,15 +53,23 @@ function ConnectedStickyNotes() {
     setEditor({ mode: "closed" });
   };
 
-  const saveNote = async ({ title, content }: { title: string; content: string }) => {
+  const saveNote = async ({
+    title,
+    content,
+    color,
+  }: {
+    title: string;
+    content: string;
+    color: PaperColor;
+  }) => {
     setError(null);
     setIsSaving(true);
 
     try {
       if (editor.mode === "edit") {
-        await updateNote({ id: editor.note._id, title, content });
+        await updateNote({ id: editor.note._id, title, content, color });
       } else {
-        await createNote({ title, content });
+        await createNote({ title, content, color });
       }
       setEditor({ mode: "closed" });
     } catch (saveError) {

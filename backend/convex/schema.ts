@@ -23,6 +23,8 @@ export default defineSchema({
     owner: v.optional(v.string()),
     destination: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Kept optional for existing inventory records that already have image IDs.
+    images: v.optional(v.array(v.string())),
     estimatedValue: v.optional(v.number()),
     soldPrice: v.optional(v.number()),
     completedAt: v.optional(v.number()),
@@ -38,6 +40,16 @@ export default defineSchema({
   stickyNotes: defineTable({
     title: v.string(),
     content: v.string(),
+    // Optional so notes created before colour selection was added remain valid.
+    color: v.optional(
+      v.union(
+        v.literal("butter"),
+        v.literal("mint"),
+        v.literal("sky"),
+        v.literal("blush"),
+        v.literal("lavender"),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_updatedAt", ["updatedAt"]),

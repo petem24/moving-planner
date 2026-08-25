@@ -167,7 +167,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
           <fieldset>
             <legend className="eyebrow mb-3">Item</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field className="sm:col-span-2" id="detail-name" label="Item name"><input autoFocus className={inputClass} id="detail-name" maxLength={120} onChange={(event) => setName(event.target.value)} required value={name} /></Field>
+              <Field className="sm:col-span-2" id="detail-name" label="Item name"><input className={inputClass} id="detail-name" maxLength={120} onChange={(event) => setName(event.target.value)} required value={name} /></Field>
               <Field id="detail-room" label="Room"><input className={inputClass} id="detail-room" maxLength={80} onChange={(event) => setRoom(event.target.value)} required value={room} /></Field>
               <Field id="detail-quantity" label="Quantity"><input className={inputClass} id="detail-quantity" min="1" onChange={(event) => setQuantity(event.target.value)} required step="1" type="number" value={quantity} /></Field>
             </div>

@@ -50,6 +50,9 @@ export default defineSchema({
         v.literal("lavender"),
       ),
     ),
+    // Optional so notes created before manual ordering was added keep their
+    // existing position until the first reorder.
+    sortOrder: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_updatedAt", ["updatedAt"]),

@@ -1,10 +1,21 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import type {
+  ButtonHTMLAttributes,
+  Ref,
+  TouchEventHandler,
+} from "react";
 
 import type { Doc } from "../../../../backend/convex/_generated/dataModel";
 import { paperFor, paperStyle } from "./paper";
 
 type StickyNoteCardProps = {
   note: Doc<"stickyNotes">;
+  isDragging?: boolean;
+  dragHandleProps?: ButtonHTMLAttributes<HTMLButtonElement> & {
+    ref?: Ref<HTMLButtonElement>;
+  };
+  onTouchStart?: TouchEventHandler<HTMLElement>;
+  showDragHandle?: boolean;
   onEdit: (note: Doc<"stickyNotes">) => void;
   onDelete: (note: Doc<"stickyNotes">) => void;
 };
@@ -15,15 +26,36 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "sh
 const paperButton =
   "grid size-7 place-items-center rounded-full text-current/60 transition-colors hover:bg-black/8 hover:text-current focus-visible:bg-black/8 focus-visible:outline-none [&_svg]:size-3.5";
 
-export function StickyNoteCard({ note, onEdit, onDelete }: StickyNoteCardProps) {
+export function StickyNoteCard({
+  note,
+  isDragging = false,
+  dragHandleProps,
+  onTouchStart,
+  showDragHandle = true,
+  onEdit,
+  onDelete,
+}: StickyNoteCardProps) {
   const { stock, tilt } = paperFor(note._id, note.color);
 
   return (
     <article
-      className="group relative flex min-h-44 rotate-(--tilt) flex-col p-5 pt-8 shadow-lg transition-transform duration-200 ease-out-quart hover:rotate-0 hover:scale-[1.015]"
+      className={`group relative flex h-full min-h-44 rotate-(--tilt) flex-col p-5 pt-8 shadow-lg transition-[box-shadow,transform] duration-200 ease-out-quart hover:rotate-0 hover:scale-[1.015] ${isDragging ? "rotate-0 scale-[1.025] shadow-xl" : ""}`}
+      onTouchStart={onTouchStart}
       style={paperStyle(stock, tilt)}
     >
       <Tape />
+
+      {showDragHandle && (
+        <button
+          {...dragHandleProps}
+          aria-label={`Drag ${note.title} to reorder`}
+          className="absolute top-2 left-2 z-10 hidden size-6 touch-none cursor-grab place-items-center rounded-md text-current/35 transition-colors hover:bg-black/6 hover:text-current/70 active:cursor-grabbing sm:grid"
+          data-drag-handle
+          type="button"
+        >
+          <GripVertical className="size-3.5" strokeWidth={1.8} />
+        </button>
+      )}
 
       <h3 className="font-hand text-lg font-semibold leading-snug" style={{ color: stock.ink }}>
         {note.title}

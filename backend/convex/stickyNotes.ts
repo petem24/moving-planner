@@ -32,11 +32,16 @@ export const list = query({
   handler: async (ctx) => {
     await requireAuthenticatedUser(ctx);
 
-    return await ctx.db
+    const notes = await ctx.db
       .query("stickyNotes")
-      .withIndex("by_updatedAt")
-      .order("desc")
       .collect();
+
+    // Existing notes do not have a sortOrder yet. Their negative updatedAt
+    // value preserves the previous newest-first order until they are moved.
+    return notes.sort(
+      (left, right) =>
+        (left.sortOrder ?? -left.updatedAt) - (right.sortOrder ?? -right.updatedAt),
+    );
   },
 });
 
@@ -50,11 +55,18 @@ export const create = mutation({
     await requireAuthenticatedUser(ctx);
 
     const now = Date.now();
+    const notes = await ctx.db.query("stickyNotes").collect();
+    const nextSortOrder =
+      notes.reduce(
+        (minimum, note) => Math.min(minimum, note.sortOrder ?? -note.updatedAt),
+        0,
+      ) - 1;
 
     return await ctx.db.insert("stickyNotes", {
       title: cleanText(args.title, "Title", MAX_TITLE_LENGTH),
       content: cleanText(args.content, "Note", MAX_CONTENT_LENGTH),
       color: args.color,
+      sortOrder: nextSortOrder,
       createdAt: now,
       updatedAt: now,
     });
@@ -83,6 +95,31 @@ export const update = mutation({
       color: args.color,
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const reorder = mutation({
+  args: {
+    ids: v.array(v.id("stickyNotes")),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx);
+
+    const notes = await ctx.db.query("stickyNotes").collect();
+    const noteIds = new Set(notes.map((note) => note._id));
+    const requestedIds = new Set(args.ids);
+
+    if (
+      requestedIds.size !== args.ids.length ||
+      requestedIds.size !== notes.length ||
+      args.ids.some((id) => !noteIds.has(id))
+    ) {
+      throw new Error("Unable to reorder sticky notes");
+    }
+
+    await Promise.all(
+      args.ids.map((id, index) => ctx.db.patch(id, { sortOrder: index })),
+    );
   },
 });
 

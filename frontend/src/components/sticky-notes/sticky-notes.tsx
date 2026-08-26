@@ -1,4 +1,31 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type TouchEventHandler,
+} from "react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Plus } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 
@@ -6,9 +33,9 @@ import { Button } from "@/components/ui/button";
 
 import { api } from "../../../../backend/convex/_generated/api";
 import type { Doc } from "../../../../backend/convex/_generated/dataModel";
+import type { PaperColor } from "./paper";
 import { StickyNoteCard } from "./sticky-note-card";
 import { StickyNoteEditor } from "./sticky-note-editor";
-import type { PaperColor } from "./paper";
 
 type StickyNotesProps = {
   /** Allows the homepage to render a useful setup state without a Convex provider. */
@@ -20,11 +47,11 @@ type EditorState =
   | { mode: "create" }
   | { mode: "edit"; note: Doc<"stickyNotes"> };
 
-export function StickyNotes({ enabled }: StickyNotesProps) {
-  if (!enabled) {
-    return <StickyNotesUnavailable />;
-  }
+type StickyNote = Doc<"stickyNotes">;
+type StickyNoteId = StickyNote["_id"];
 
+export function StickyNotes({ enabled }: StickyNotesProps) {
+  if (!enabled) return <StickyNotesUnavailable />;
   return <ConnectedStickyNotes />;
 }
 
@@ -33,16 +60,63 @@ function ConnectedStickyNotes() {
   const createNote = useMutation(api.stickyNotes.create);
   const updateNote = useMutation(api.stickyNotes.update);
   const removeNote = useMutation(api.stickyNotes.remove);
+  const reorderNotes = useMutation(api.stickyNotes.reorder);
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<StickyNoteId | null>(null);
+  const [optimisticOrder, setOptimisticOrder] = useState<StickyNoteId[] | null>(null);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 4 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 450, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const orderedNotes = useMemo(() => {
+    if (!notes || !optimisticOrder) return notes;
+
+    const notesById = new Map(notes.map((note) => [note._id, note]));
+    const reordered = optimisticOrder.map((id) => notesById.get(id));
+
+    return reordered.every((note): note is StickyNote => note !== undefined) &&
+      reordered.length === notes.length
+      ? reordered
+      : notes;
+  }, [notes, optimisticOrder]);
+
+  const activeNote = useMemo(
+    () => orderedNotes?.find((note) => note._id === activeId),
+    [activeId, orderedNotes],
+  );
+
+  // Keep the local order visible while Convex applies the mutation, then hand
+  // control back to the matching server response.
+  useEffect(() => {
+    if (!notes || !optimisticOrder) return;
+
+    const serverIds = notes.map((note) => note._id);
+    const sameNotes =
+      serverIds.length === optimisticOrder.length &&
+      optimisticOrder.every((id) => serverIds.includes(id));
+
+    if (!sameNotes || serverIds.every((id, index) => id === optimisticOrder[index])) {
+      setOptimisticOrder(null);
+    }
+  }, [notes, optimisticOrder]);
 
   const openCreate = () => {
     setError(null);
     setEditor({ mode: "create" });
   };
 
-  const openEdit = (note: Doc<"stickyNotes">) => {
+  const openEdit = (note: StickyNote) => {
     setError(null);
     setEditor({ mode: "edit", note });
   };
@@ -79,7 +153,7 @@ function ConnectedStickyNotes() {
     }
   };
 
-  const deleteNote = async (note: Doc<"stickyNotes">) => {
+  const deleteNote = async (note: StickyNote) => {
     if (!window.confirm(`Delete “${note.title}”?`)) return;
 
     try {
@@ -90,6 +164,37 @@ function ConnectedStickyNotes() {
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete this note");
     }
+  };
+
+  const persistOrder = async (nextOrder: StickyNoteId[]) => {
+    setError(null);
+
+    try {
+      await reorderNotes({ ids: nextOrder });
+    } catch (reorderError) {
+      setOptimisticOrder(null);
+      setError(
+        reorderError instanceof Error ? reorderError.message : "Unable to reorder sticky notes",
+      );
+    }
+  };
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    setActiveId(active.id as StickyNoteId);
+  };
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
+    if (!orderedNotes || !over || active.id === over.id) return;
+
+    const previousIndex = orderedNotes.findIndex((note) => note._id === active.id);
+    const nextIndex = orderedNotes.findIndex((note) => note._id === over.id);
+    if (previousIndex < 0 || nextIndex < 0) return;
+
+    const nextNotes = arrayMove(orderedNotes, previousIndex, nextIndex);
+    const nextOrder = nextNotes.map((note) => note._id);
+    setOptimisticOrder(nextOrder);
+    void persistOrder(nextOrder);
   };
 
   return (
@@ -127,17 +232,53 @@ function ConnectedStickyNotes() {
           Nothing on the wall yet — stick something up
         </button>
       ) : (
-        <div
-          aria-label="Notes"
-          className="columns-1 gap-5 sm:columns-2"
-          role="region"
+        <DndContext
+          collisionDetection={closestCenter}
+          onDragCancel={() => setActiveId(null)}
+          onDragEnd={handleDragEnd}
+          onDragStart={handleDragStart}
+          sensors={sensors}
         >
-          {notes.map((note) => (
-            <div className="mb-5 break-inside-avoid" key={note._id}>
-              <StickyNoteCard note={note} onDelete={deleteNote} onEdit={openEdit} />
+          <SortableContext
+            items={orderedNotes?.map((note) => note._id) ?? []}
+            strategy={rectSortingStrategy}
+          >
+            <div
+              aria-label="Notes"
+              className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2"
+              role="region"
+            >
+              {orderedNotes?.map((note) => (
+                <SortableStickyNote
+                  key={note._id}
+                  note={note}
+                  onDelete={deleteNote}
+                  onEdit={openEdit}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+
+          <DragOverlay
+            adjustScale={false}
+            dropAnimation={{
+              duration: 180,
+              easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+            }}
+          >
+            {activeNote ? (
+              <div aria-hidden className="pointer-events-none h-full w-full">
+                <StickyNoteCard
+                  isDragging
+                  note={activeNote}
+                  onDelete={deleteNote}
+                  onEdit={openEdit}
+                  showDragHandle={false}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {error && editor.mode === "closed" && (
@@ -146,6 +287,64 @@ function ConnectedStickyNotes() {
         </p>
       )}
     </section>
+  );
+}
+
+function SortableStickyNote({
+  note,
+  onEdit,
+  onDelete,
+}: {
+  note: StickyNote;
+  onEdit: (note: StickyNote) => void;
+  onDelete: (note: StickyNote) => void;
+}) {
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({
+    id: note._id,
+    transition: {
+      duration: 220,
+      easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+    },
+  });
+
+  const style: CSSProperties = {
+    opacity: isDragging ? 0.24 : 1,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    willChange: isDragging ? "transform" : undefined,
+  };
+
+  const handleListeners = listeners as ButtonHTMLAttributes<HTMLButtonElement> | undefined;
+  const touchListener = listeners?.onTouchStart as TouchEventHandler<HTMLElement> | undefined;
+  const handleTouchStart: TouchEventHandler<HTMLElement> = (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("button, a, input, textarea, select")) return;
+    touchListener?.(event);
+  };
+
+  return (
+    <div className="min-w-0" ref={setNodeRef} style={style}>
+      <StickyNoteCard
+        dragHandleProps={{
+          ...attributes,
+          ...handleListeners,
+          ref: setActivatorNodeRef,
+        }}
+        isDragging={isDragging}
+        note={note}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onTouchStart={handleTouchStart}
+      />
+    </div>
   );
 }
 

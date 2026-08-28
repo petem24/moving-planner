@@ -7,6 +7,7 @@ import type { Id } from "../../../../backend/convex/_generated/dataModel";
 import { api } from "../../../../backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ItemImages } from "./item-images";
 import { loadPreviewItems, savePreviewItem } from "./items-page";
 import type { Category, InventoryItem, InventoryItemUpdate, ItemStatus } from "./inventory-types";
 
@@ -55,6 +56,7 @@ function ConnectedItemDetail() {
         notes: item.notes,
         estimatedValue: item.estimatedValue,
         soldPrice: item.soldPrice,
+        images: item.images ?? [],
       }}
       onSave={async (updated) => updateItem({ id: item._id, ...updated })}
     />
@@ -133,6 +135,10 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
         </header>
 
         <div className="space-y-7 px-5 py-6 sm:px-7">
+          {!preview && (
+            <ItemImages images={item.images ?? []} itemId={item.id as Id<"inventory">} itemName={item.name} />
+          )}
+
           <fieldset>
             <legend className="eyebrow mb-3">Status</legend>
             <div className="grid grid-cols-3 gap-2">

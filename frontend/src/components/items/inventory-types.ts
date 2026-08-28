@@ -1,3 +1,5 @@
+import type { Id } from "../../../../backend/convex/_generated/dataModel";
+
 export type Category = "sell" | "ship" | "donate" | "trash" | "store";
 
 export type ItemStatus = "pending" | "in_progress" | "complete";
@@ -16,6 +18,7 @@ export type InventoryItem = {
   notes?: string;
   estimatedValue?: number;
   soldPrice?: number;
+  images?: Array<Id<"_storage">>;
 };
 
 export type NewInventoryItem = Omit<InventoryItem, "id" | "status" | "soldPrice">;

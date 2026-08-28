@@ -7,6 +7,7 @@ import {
   Gift,
   House,
   LayoutGrid,
+  List,
   Plus,
   Search,
   Ship,
@@ -36,6 +37,8 @@ type Column = {
 };
 
 type SortDirection = "asc" | "desc";
+type ViewMode = "table" | "grid";
+type ImageUrlMap = Record<string, string | null>;
 
 const categoryOrder: Category[] = ["sell", "ship", "donate", "trash", "store"];
 
@@ -193,6 +196,11 @@ export function ItemsPage({ enabled }: { enabled: boolean }) {
 function ConnectedItemsPage() {
   const items = useQuery(api.inventory.list);
   const createItem = useMutation(api.inventory.create);
+  const firstImageIds = useMemo(
+    () => [...new Set((items ?? []).flatMap((item) => item.images?.slice(0, 1) ?? []))],
+    [items],
+  );
+  const imageUrls = useQuery(api.inventory.imageUrls, items ? { ids: firstImageIds } : "skip");
   if (!items) return <ItemsLoading />;
 
   return (
@@ -211,7 +219,9 @@ function ConnectedItemsPage() {
         notes: item.notes,
         estimatedValue: item.estimatedValue,
         soldPrice: item.soldPrice,
+        images: item.images ?? [],
       }))}
+      imageUrls={imageUrls}
       onCreate={async (item) => {
         await createItem(item);
       }}
@@ -251,7 +261,7 @@ export function savePreviewItem(updated: InventoryItem) {
   sessionStorage.setItem("preview-inventory", JSON.stringify(next));
 }
 
-function ItemsWorkspace({ items, onCreate, preview = false }: { items: InventoryItem[]; onCreate: (item: NewInventoryItem) => Promise<void>; preview?: boolean }) {
+function ItemsWorkspace({ items, imageUrls = {}, onCreate, preview = false }: { items: InventoryItem[]; imageUrls?: ImageUrlMap; onCreate: (item: NewInventoryItem) => Promise<void>; preview?: boolean }) {
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -261,7 +271,8 @@ function ItemsWorkspace({ items, onCreate, preview = false }: { items: Inventory
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const selectTab = (tab: Tab) => {
-    navigate(`/items/${tab}`);
+    const keepGridView = new URLSearchParams(location.search).get("view") === "grid";
+    navigate(`/items/${tab}${keepGridView ? "?view=grid" : ""}`);
   };
 
   useLayoutEffect(() => {
@@ -321,7 +332,7 @@ function ItemsWorkspace({ items, onCreate, preview = false }: { items: Inventory
           const count = itemsForTab(items, tab).reduce((total, item) => total + item.quantity, 0);
           return (
             <button
-              aria-controls={`${tab}-table`}
+              aria-controls={`${tab}-panel`}
               aria-selected={active}
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-1 md:px-3 ${active ? "flex-1 bg-muted text-foreground shadow-xs" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
               key={tab}
@@ -342,7 +353,7 @@ function ItemsWorkspace({ items, onCreate, preview = false }: { items: Inventory
         <p className="text-xs text-muted-foreground">Sample items until the inventory database is connected. Items you add here last for this session.</p>
       )}
 
-      <InventoryTable items={itemsForTab(items, activeTab)} tab={activeTab} />
+      <InventoryTable imageUrls={imageUrls} items={itemsForTab(items, activeTab)} tab={activeTab} />
 
       {showForm && (
         <ItemForm
@@ -361,7 +372,7 @@ function itemsForTab(items: InventoryItem[], tab: Tab) {
   return tab === "all" ? items : items.filter((item) => item.category === tab);
 }
 
-function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
+function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; items: InventoryItem[]; tab: Tab }) {
   const meta = tabMeta[tab];
   const columns = columnsByTab[tab];
   const [params, setParams] = useSearchParams();
@@ -374,6 +385,7 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
   const rawSortKey = params.get("sort") as keyof InventoryItem | null;
   const sortKey = columns.some((column) => column.key === rawSortKey) ? rawSortKey! : "name";
   const sortDirection: SortDirection = params.get("dir") === "desc" ? "desc" : "asc";
+  const view: ViewMode = params.get("view") === "grid" ? "grid" : "table";
 
   const setParam = (key: string, value: string, defaultValue = "") => {
     setParams((current) => {
@@ -387,6 +399,7 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
   const setSearch = (value: string) => setParam("q", value);
   const setRoom = (value: string) => setParam("room", value, "all");
   const setStatus = (value: "all" | ItemStatus) => setParam("status", value, "all");
+  const setView = (value: ViewMode) => setParam("view", value, "table");
 
   const rooms = useMemo(() => [...new Set(items.map((item) => item.room))].sort(), [items]);
   const filteredItems = useMemo(() => {
@@ -418,9 +431,9 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
   };
 
   return (
-    <section aria-label={meta.label} id={`${tab}-table`} role="tabpanel">
+    <section aria-label={meta.label} id={`${tab}-panel`} role="tabpanel">
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        {/* One toolbar row on mobile — everything but search hides behind the filters popover. */}
+        {/* One toolbar row on mobile — detailed filter and sort controls hide in the popover. */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-2 sm:p-3">
           <label className="relative min-w-0 flex-1 md:min-w-52">
             <span className="sr-only">Search {meta.label.toLocaleLowerCase()}</span>
@@ -447,6 +460,15 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
             status={status}
           />
 
+          <div aria-label="Display items as" className="flex shrink-0 rounded-lg border border-input bg-background p-0.5" role="group">
+            <button aria-label="Table view" aria-pressed={view === "table"} className={`grid size-8 place-items-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === "table" ? "bg-muted text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setView("table")} title="Table view" type="button">
+              <List className="size-4" />
+            </button>
+            <button aria-label="Grid view" aria-pressed={view === "grid"} className={`grid size-8 place-items-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === "grid" ? "bg-muted text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setView("grid")} title="Grid view" type="button">
+              <LayoutGrid className="size-4" />
+            </button>
+          </div>
+
           <label className="hidden md:block">
             <span className="sr-only">Filter by room</span>
             <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" onChange={(event) => setRoom(event.target.value)} value={room}>
@@ -465,7 +487,7 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
           </label>
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
+        {view === "table" && <div className="hidden overflow-x-auto md:block">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-muted/60 text-xs text-muted-foreground">
               <tr>
@@ -504,23 +526,31 @@ function InventoryTable({ items, tab }: { items: InventoryItem[]; tab: Tab }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
 
-        <div className="divide-y divide-border md:hidden">
+        {view === "table" && <div className="divide-y divide-border md:hidden">
           {filteredItems.map((item) => (
             <ItemRow item={item} key={item.id} onOpen={() => openItem(item)} showCategory={tab === "all"} />
           ))}
-        </div>
+        </div>}
+
+        {view === "grid" && filteredItems.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:p-4 lg:grid-cols-4 xl:grid-cols-5">
+            {filteredItems.map((item) => (
+              <ItemGridCard imageUrls={imageUrls} item={item} key={item.id} onOpen={() => openItem(item)} showCategory={tab === "all"} />
+            ))}
+          </div>
+        )}
 
         {filteredItems.length === 0 && (
           <div className="grid place-items-center gap-1 px-6 py-10 text-center">
             <p className="text-sm font-medium">{items.length === 0 ? (tab === "all" ? "No items yet" : `Nothing in ${meta.label.toLocaleLowerCase()} yet`) : "No matching items"}</p>
-            <p className="text-xs text-muted-foreground">{items.length === 0 ? "Items added here will appear in this table." : "Try clearing a filter or changing your search."}</p>
+            <p className="text-xs text-muted-foreground">{items.length === 0 ? "Items added here will appear in this view." : "Try clearing a filter or changing your search."}</p>
           </div>
         )}
 
         <footer className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          <span>{filteredItems.length} of {items.length} lines</span>
+          <span>{filteredItems.length} of {items.length} items</span>
           <span className="numeric">{filteredItems.reduce((total, item) => total + item.quantity, 0)} items</span>
         </footer>
       </div>
@@ -543,6 +573,38 @@ function ItemRow({ item, onOpen, showCategory = false }: { item: InventoryItem; 
       </div>
       <StatusPill status={item.status} />
     </div>
+    </button>
+  );
+}
+
+function ItemGridCard({ imageUrls, item, onOpen, showCategory = false }: { imageUrls: ImageUrlMap; item: InventoryItem; onOpen: () => void; showCategory?: boolean }) {
+  const firstImageId = item.images?.[0];
+  const imageUrl = firstImageId ? imageUrls[firstImageId] : null;
+  const meta = categoryMeta[item.category];
+  const CategoryIcon = meta.icon;
+
+  return (
+    <button className="group min-w-0 overflow-hidden rounded-xl border border-border bg-background text-left shadow-xs transition hover:-translate-y-0.5 hover:border-ring/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30" onClick={onOpen} type="button">
+      <div className={`relative aspect-[4/3] overflow-hidden ${meta.tint}`}>
+        {firstImageId && imageUrl === undefined ? (
+          <div aria-label="Loading photo" className="h-full w-full animate-pulse bg-muted" role="status" />
+        ) : imageUrl ? (
+          <img alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" src={imageUrl} />
+        ) : (
+          <div className={`grid h-full place-items-center ${meta.strong}`}>
+            <CategoryIcon className="size-9 opacity-55" />
+          </div>
+        )}
+        <div className="absolute top-2 right-2"><StatusPill status={item.status} /></div>
+      </div>
+      <div className="p-3">
+        <p className="truncate font-medium text-foreground">{item.name}</p>
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {showCategory && <CategoryTag category={item.category} compact />}
+          <span className="truncate">{item.room}</span>
+          {item.quantity > 1 && <span className="numeric shrink-0">×{item.quantity}</span>}
+        </div>
+      </div>
     </button>
   );
 }

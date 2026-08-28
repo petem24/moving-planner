@@ -23,8 +23,8 @@ export default defineSchema({
     owner: v.optional(v.string()),
     destination: v.optional(v.string()),
     notes: v.optional(v.string()),
-    // Kept optional for existing inventory records that already have image IDs.
-    images: v.optional(v.array(v.string())),
+    // Optional so inventory records created before photo uploads remain valid.
+    images: v.optional(v.array(v.id("_storage"))),
     estimatedValue: v.optional(v.number()),
     soldPrice: v.optional(v.number()),
     completedAt: v.optional(v.number()),

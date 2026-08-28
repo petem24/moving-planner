@@ -1,0 +1,107 @@
+import { useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { ImagePlus, LoaderCircle, X } from "lucide-react";
+
+import { api } from "../../../../backend/convex/_generated/api";
+import type { Id } from "../../../../backend/convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
+import { resizeImage } from "@/lib/image";
+
+const MAX_IMAGES = 6;
+
+export function ItemImages({ itemId, itemName, images }: { itemId: Id<"inventory">; itemName: string; images: Array<Id<"_storage">> }) {
+  const generateUploadUrl = useMutation(api.inventory.generateUploadUrl);
+  const addImage = useMutation(api.inventory.addImage);
+  const discardImage = useMutation(api.inventory.discardImage);
+  const removeImage = useMutation(api.inventory.removeImage);
+  const urlMap = useQuery(api.inventory.imageUrls, { ids: images });
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setUploading] = useState(false);
+  const [removingStorageId, setRemovingStorageId] = useState<Id<"_storage"> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const atLimit = images.length >= MAX_IMAGES;
+
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setError(null);
+    setUploading(true);
+    let unattachedId: Id<"_storage"> | null = null;
+    let remainingSlots = MAX_IMAGES - images.length;
+    try {
+      for (const file of Array.from(fileList)) {
+        if (!file.type.startsWith("image/") || remainingSlots <= 0) continue;
+
+        const blob = await resizeImage(file);
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": blob.type },
+          body: blob,
+        });
+        if (!response.ok) throw new Error("Upload failed — try again");
+        const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+        unattachedId = storageId;
+        await addImage({ id: itemId, storageId });
+        unattachedId = null;
+        remainingSlots -= 1;
+      }
+    } catch (caught) {
+      if (unattachedId) await discardImage({ storageId: unattachedId }).catch(() => undefined);
+      setError(caught instanceof Error ? caught.message : "Couldn't upload that photo");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleRemove = async (storageId: Id<"_storage">) => {
+    setError(null);
+    setRemovingStorageId(storageId);
+    try {
+      await removeImage({ id: itemId, storageId });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Couldn't remove that photo");
+    } finally {
+      setRemovingStorageId(null);
+    }
+  };
+
+  return (
+    <fieldset>
+      <legend className="eyebrow mb-3">Photos</legend>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {images.map((storageId) => (
+          <figure className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted" key={storageId}>
+            {urlMap === undefined ? (
+              <div aria-label="Loading photo" className="h-full w-full animate-pulse bg-muted" role="status" />
+            ) : (
+              <a href={urlMap[storageId] ?? undefined} rel="noreferrer" target="_blank">
+                <img alt={`Photo of ${itemName}`} className={cn("h-full w-full object-cover", !urlMap[storageId] && "hidden")} loading="lazy" src={urlMap[storageId] ?? undefined} />
+              </a>
+            )}
+            {!urlMap?.[storageId] && urlMap !== undefined && (
+              <figcaption className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Missing</figcaption>
+            )}
+            <button aria-label="Remove photo" className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-background/85 text-foreground shadow-sm backdrop-blur transition-colors hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={isUploading || removingStorageId !== null} onClick={() => void handleRemove(storageId)} type="button">
+              <X className="size-3.5" />
+            </button>
+          </figure>
+        ))}
+
+        {!atLimit && (
+          <button aria-label="Add photos" className={cn("grid aspect-square place-items-center gap-1 rounded-xl border border-dashed border-border text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 hover:border-ring hover:bg-muted/50 hover:text-foreground", (isUploading || removingStorageId !== null) && "pointer-events-none opacity-60")} disabled={isUploading || removingStorageId !== null} onClick={() => inputRef.current?.click()} type="button">
+            {isUploading ? <LoaderCircle className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+            <span className="px-1 text-center text-[11px] leading-tight">{isUploading ? "Uploading…" : "Add photos"}</span>
+          </button>
+        )}
+      </div>
+
+      <input accept="image/*" className="sr-only" multiple onChange={(event) => void handleFiles(event.target.files)} ref={inputRef} tabIndex={-1} type="file" />
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {atLimit ? `${MAX_IMAGES} of ${MAX_IMAGES} photos — remove one to add another` : `${images.length} of ${MAX_IMAGES} photos · compressed automatically before upload`}
+      </p>
+      {error && <p className="mt-1 text-sm text-destructive" role="alert">{error}</p>}
+    </fieldset>
+  );
+}

@@ -10,6 +10,8 @@ const inventoryCategory = v.union(
   v.literal("store"),
 );
 
+export const MAX_IMAGES_PER_ITEM = 6;
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -77,6 +79,80 @@ export const get = query({
   handler: async (ctx, { id }) => {
     await requireAuthenticatedUser(ctx);
     return await ctx.db.get(id);
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAuthenticatedUser(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const addImage = mutation({
+  args: { id: v.id("inventory"), storageId: v.id("_storage") },
+  handler: async (ctx, { id, storageId }) => {
+    await requireAuthenticatedUser(ctx);
+
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Item not found");
+
+    const images = existing.images ?? [];
+    if (images.includes(storageId)) return null;
+    if (images.length >= MAX_IMAGES_PER_ITEM) {
+      throw new Error(`Maximum of ${MAX_IMAGES_PER_ITEM} photos per item`);
+    }
+
+    const file = await ctx.db.system.get("_storage", storageId);
+    if (!file) throw new Error("Photo upload not found");
+    if (!file.contentType?.startsWith("image/")) {
+      throw new Error("Only image uploads can be attached to an item");
+    }
+
+    await ctx.db.patch(id, { images: [...images, storageId], updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Remove an uploaded file when attaching it to an item did not complete. */
+export const discardImage = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    await requireAuthenticatedUser(ctx);
+    await ctx.storage.delete(storageId);
+    return null;
+  },
+});
+
+export const removeImage = mutation({
+  args: { id: v.id("inventory"), storageId: v.id("_storage") },
+  handler: async (ctx, { id, storageId }) => {
+    await requireAuthenticatedUser(ctx);
+
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Item not found");
+
+    const images = existing.images ?? [];
+    if (!images.includes(storageId)) return null;
+
+    await ctx.db.patch(id, {
+      images: images.filter((image) => image !== storageId),
+      updatedAt: Date.now(),
+    });
+    await ctx.storage.delete(storageId);
+    return null;
+  },
+});
+
+export const imageUrls = query({
+  args: { ids: v.array(v.id("_storage")) },
+  handler: async (ctx, { ids }) => {
+    await requireAuthenticatedUser(ctx);
+
+    const urls: Record<string, string | null> = {};
+    for (const id of ids) urls[id] = await ctx.storage.getUrl(id);
+    return urls;
   },
 });
 

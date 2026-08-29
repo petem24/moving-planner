@@ -4,12 +4,14 @@ import { ClerkProvider, SignIn, SignOutButton, useAuth } from "@clerk/react";
 import {
   Authenticated,
   AuthLoading,
+  ConvexProvider,
   ConvexReactClient,
   Unauthenticated,
 } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { PublicMarketplace } from "./components/marketplace/public-marketplace";
 import "./index.css";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL;
@@ -92,7 +94,15 @@ function AuthenticatedApp({ convexUrl }: { convexUrl: string }) {
 
 let content: ReactNode;
 
-if (convexUrl && clerkPublishableKey) {
+if (window.location.pathname.startsWith("/marketplace")) {
+  content = convexUrl ? (
+    <ConvexProvider client={new ConvexReactClient(convexUrl)}>
+      <BrowserRouter><PublicMarketplace enabled /></BrowserRouter>
+    </ConvexProvider>
+  ) : (
+    <BrowserRouter><PublicMarketplace enabled={false} /></BrowserRouter>
+  );
+} else if (convexUrl && clerkPublishableKey) {
   content = (
     <ClerkProvider publishableKey={clerkPublishableKey}>
       <AuthenticatedApp convexUrl={convexUrl} />

@@ -37,6 +37,12 @@ export default defineSchema({
     .index("by_updatedAt", ["updatedAt"])
     .index("by_category_and_room", ["category", "room"]),
 
+  marketplaceClaims: defineTable({
+    inventoryId: v.id("inventory"),
+    name: v.string(),
+    createdAt: v.number(),
+  }).index("by_inventoryId", ["inventoryId"]),
+
   stickyNotes: defineTable({
     title: v.string(),
     content: v.string(),

@@ -2,7 +2,12 @@ import type { Id } from "../../../../backend/convex/_generated/dataModel";
 
 export type Category = "sell" | "ship" | "donate" | "trash" | "store";
 
-export type ItemStatus = "pending" | "in_progress" | "complete";
+export type ItemStatus =
+  | "for_sale" | "sold"
+  | "available" | "claimed" | "donated"
+  | "to_dispose" | "disposed"
+  | "to_pack" | "packed" | "shipped"
+  | "to_store" | "stored";
 
 export type InventoryItem = {
   id: string;

@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { inventoryStatus, legacyInventoryStatus } from "./inventoryStatus";
 
 export default defineSchema({
   inventory: defineTable({
@@ -13,11 +14,9 @@ export default defineSchema({
     ),
     room: v.string(),
     quantity: v.number(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("in_progress"),
-      v.literal("complete"),
-    ),
+    // Legacy values remain accepted during the rolling data migration. Remove
+    // legacyInventoryStatus after migrateLegacyStatuses has rewritten all rows.
+    status: v.union(inventoryStatus, legacyInventoryStatus),
     marketplaceLink: v.optional(v.string()),
     donationLocation: v.optional(v.string()),
     owner: v.optional(v.string()),

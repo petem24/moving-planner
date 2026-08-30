@@ -2,6 +2,10 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 
+function isUnavailable(item: Doc<"inventory">) {
+  return item.status === "complete" || item.status === "sold" || item.status === "donated";
+}
+
 const publicItem = async (
   ctx: QueryCtx,
   item: Doc<"inventory">,
@@ -22,6 +26,7 @@ const publicItem = async (
     quantity: item.quantity,
     price: item.category === "sell" ? item.estimatedValue : undefined,
     imageUrls: imageUrls.filter((url): url is string => url !== null),
+    claimed: Boolean(claim) || item.status === "claimed",
     claimedBy: claim?.name,
   };
 };
@@ -34,14 +39,14 @@ export const list = query({
     const visible = inventory.filter(
       (item) =>
         (item.category === "sell" || item.category === "donate") &&
-        item.status !== "complete",
+        !isUnavailable(item),
     );
     const items = await Promise.all(visible.map(async (item) => await publicItem(ctx, item)));
 
     return items.sort((a, b) => {
       // Keep the useful, listing-ready items at the top and claimed items at
       // the bottom. Alphabetical order makes every group predictable.
-      const byClaim = Number(Boolean(a.claimedBy)) - Number(Boolean(b.claimedBy));
+      const byClaim = Number(a.claimed) - Number(b.claimed);
       if (byClaim !== 0) return byClaim;
 
       const byPhoto = Number(b.imageUrls.length > 0) - Number(a.imageUrls.length > 0);
@@ -64,7 +69,7 @@ export const get = query({
     if (
       !item ||
       (item.category !== "sell" && item.category !== "donate") ||
-      item.status === "complete"
+      isUnavailable(item)
     ) return null;
     return await publicItem(ctx, item);
   },
@@ -82,8 +87,11 @@ export const claim = mutation({
     if (
       !item ||
       (item.category !== "sell" && item.category !== "donate") ||
-      item.status === "complete"
+      isUnavailable(item)
     ) throw new Error("This item is no longer available");
+    if (item.category === "donate" && item.status === "claimed") {
+      throw new Error("This has already been claimed");
+    }
 
     const existing = await ctx.db
       .query("marketplaceClaims")
@@ -92,6 +100,9 @@ export const claim = mutation({
     if (existing) throw new Error(`This has already been claimed by ${existing.name}`);
 
     await ctx.db.insert("marketplaceClaims", { inventoryId, name, createdAt: Date.now() });
+    if (item.category === "donate") {
+      await ctx.db.patch(inventoryId, { status: "claimed", updatedAt: Date.now() });
+    }
     return null;
   },
 });

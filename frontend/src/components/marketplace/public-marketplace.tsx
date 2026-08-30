@@ -14,23 +14,24 @@ type PublicItem = {
   quantity: number;
   price?: number;
   imageUrls: string[];
+  claimed: boolean;
   claimedBy?: string;
 };
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
 
 const sampleItems: PublicItem[] = [
-  { id: "s1", name: "Nintendo Switch", category: "sell", quantity: 1, price: 180, imageUrls: [] },
-  { id: "s2", name: "Coffee machine", category: "sell", quantity: 1, price: 75, imageUrls: [] },
-  { id: "s3", name: "Couch", category: "sell", quantity: 1, price: 220, imageUrls: [] },
-  { id: "d1", name: "Ivy plant", category: "donate", quantity: 1, imageUrls: [] },
-  { id: "d2", name: "Computer monitor / iPad", category: "donate", quantity: 1, imageUrls: [] },
-  { id: "d3", name: "Bath towels", category: "donate", quantity: 4, imageUrls: [] },
+  { id: "s1", name: "Nintendo Switch", category: "sell", quantity: 1, price: 180, imageUrls: [], claimed: false },
+  { id: "s2", name: "Coffee machine", category: "sell", quantity: 1, price: 75, imageUrls: [], claimed: false },
+  { id: "s3", name: "Couch", category: "sell", quantity: 1, price: 220, imageUrls: [], claimed: false },
+  { id: "d1", name: "Ivy plant", category: "donate", quantity: 1, imageUrls: [], claimed: false },
+  { id: "d2", name: "Computer monitor / iPad", category: "donate", quantity: 1, imageUrls: [], claimed: false },
+  { id: "d3", name: "Bath towels", category: "donate", quantity: 4, imageUrls: [], claimed: false },
 ];
 
 function previewItems(): PublicItem[] {
   const claims = JSON.parse(sessionStorage.getItem("preview-marketplace-claims") ?? "{}") as Record<string, string>;
-  return sampleItems.map((item) => ({ ...item, claimedBy: claims[item.id] }));
+  return sampleItems.map((item) => ({ ...item, claimed: Boolean(claims[item.id]), claimedBy: claims[item.id] }));
 }
 
 export function PublicMarketplace({ enabled }: { enabled: boolean }) {
@@ -127,7 +128,7 @@ function MarketplaceCard({ item }: { item: PublicItem }) {
       <h2 className="mt-2.5 truncate font-medium group-hover:text-primary">{item.name}</h2>
       <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{item.quantity > 1 ? `${item.quantity} available` : item.category === "sell" ? "For sale" : "Free"}</span>
-        {item.claimedBy && <span className="shrink-0 font-medium text-foreground">Claimed</span>}
+        {item.claimed && <span className="shrink-0 font-medium text-foreground">Claimed</span>}
       </div>
     </Link>
   );
@@ -187,8 +188,8 @@ function Detail({ item, onClaim }: { item: PublicItem; onClaim: (name: string) =
           {item.quantity > 1 && <p className="mt-4 text-sm text-muted-foreground">{item.quantity} available</p>}
 
           <div className="mt-7 border-t border-border pt-6">
-            {item.claimedBy ? (
-              <div className="rounded-2xl bg-primary/8 p-5"><Check className="size-6 text-primary" /><h2 className="mt-3 font-display text-xl">This one’s spoken for</h2><p className="mt-1 text-sm text-muted-foreground">Claimed by {item.claimedBy}.</p></div>
+            {item.claimed ? (
+              <div className="rounded-2xl bg-primary/8 p-5"><Check className="size-6 text-primary" /><h2 className="mt-3 font-display text-xl">This one’s spoken for</h2><p className="mt-1 text-sm text-muted-foreground">{item.claimedBy ? `Claimed by ${item.claimedBy}.` : "Someone has already claimed it."}</p></div>
             ) : (
               <form className="rounded-2xl border border-border bg-card p-5 shadow-sm" onSubmit={submit}>
                 <h2 className="font-display text-xl">Want this?</h2>

@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ImagePlus, LoaderCircle, X } from "lucide-react";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import { ImagePlus, LoaderCircle, Maximize2, X } from "lucide-react";
 
 import { api } from "../../../../backend/convex/_generated/api";
 import type { Id } from "../../../../backend/convex/_generated/dataModel";
@@ -19,8 +21,16 @@ export function ItemImages({ itemId, itemName, images }: { itemId: Id<"inventory
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setUploading] = useState(false);
   const [removingStorageId, setRemovingStorageId] = useState<Id<"_storage"> | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const atLimit = images.length >= MAX_IMAGES;
+  const slides = useMemo(
+    () => images.flatMap((storageId) => {
+      const src = urlMap?.[storageId];
+      return src ? [{ src, alt: `Photo of ${itemName}` }] : [];
+    }),
+    [images, itemName, urlMap],
+  );
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -72,14 +82,22 @@ export function ItemImages({ itemId, itemName, images }: { itemId: Id<"inventory
       <legend className="eyebrow mb-3">Photos</legend>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {images.map((storageId) => (
-          <figure className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted" key={storageId}>
+          <figure className="group relative self-start overflow-hidden rounded-xl border border-border bg-muted" key={storageId}>
             {urlMap === undefined ? (
               <div aria-label="Loading photo" className="h-full w-full animate-pulse bg-muted" role="status" />
-            ) : (
-              <a href={urlMap[storageId] ?? undefined} rel="noreferrer" target="_blank">
-                <img alt={`Photo of ${itemName}`} className={cn("h-full w-full object-cover", !urlMap[storageId] && "hidden")} loading="lazy" src={urlMap[storageId] ?? undefined} />
-              </a>
-            )}
+            ) : urlMap[storageId] ? (
+              <button
+                aria-label={`Open photo of ${itemName} in gallery`}
+                className="relative block w-full cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+                onClick={() => setLightboxIndex(slides.findIndex((slide) => slide.src === urlMap[storageId]))}
+                type="button"
+              >
+                <img alt={`Photo of ${itemName}`} className="block h-auto w-full object-contain" loading="lazy" src={urlMap[storageId]} />
+                <span aria-hidden="true" className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-card/90 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <Maximize2 className="size-3.5" />
+                </span>
+              </button>
+            ) : null}
             {!urlMap?.[storageId] && urlMap !== undefined && (
               <figcaption className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Missing</figcaption>
             )}
@@ -96,6 +114,14 @@ export function ItemImages({ itemId, itemName, images }: { itemId: Id<"inventory
           </button>
         )}
       </div>
+
+      <Lightbox
+        carousel={{ imageFit: "contain" }}
+        close={() => setLightboxIndex(-1)}
+        index={Math.max(lightboxIndex, 0)}
+        open={lightboxIndex >= 0}
+        slides={slides}
+      />
 
       <input accept="image/*" className="sr-only" multiple onChange={(event) => void handleFiles(event.target.files)} ref={inputRef} tabIndex={-1} type="file" />
       <p className="mt-1.5 text-[11px] text-muted-foreground">

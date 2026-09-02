@@ -168,7 +168,7 @@ function Listing({ items }: { items: PublicItem[] }) {
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       <h1 className="sr-only">Items for sale or free</h1>
       <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter items">
+        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter items">
           <FilterButton active={filter === "all"} onClick={() => updateParam("tab", "")}>All <span className="opacity-60">{counts.all}</span></FilterButton>
           <FilterButton active={filter === "sell"} onClick={() => updateParam("tab", "sell")}><Tag className="size-3.5" /> For sale <span className="opacity-60">{counts.sell}</span></FilterButton>
           <FilterButton active={filter === "donate"} onClick={() => updateParam("tab", "donate")}><Gift className="size-3.5" /> Free <span className="opacity-60">{counts.donate}</span></FilterButton>
@@ -198,7 +198,7 @@ function Listing({ items }: { items: PublicItem[] }) {
 }
 
 function FilterButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
-  return <button aria-pressed={active} className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`} onClick={onClick} type="button">{children}</button>;
+  return <button aria-pressed={active} className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`} onClick={onClick} type="button">{children}</button>;
 }
 
 function MarketplaceCard({ item, marketplaceSearch }: { item: PublicItem; marketplaceSearch: string }) {

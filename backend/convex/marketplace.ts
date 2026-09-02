@@ -4,7 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./auth";
 
 function isUnavailable(item: Doc<"inventory">) {
-  return item.status === "complete" || item.status === "sold" || item.status === "donated";
+  return item.status === "sold" || item.status === "donated";
 }
 
 const publicItem = async (

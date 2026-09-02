@@ -1,14 +1,11 @@
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./auth";
-import { internal } from "./_generated/api";
 import {
   initialStatus,
   inventoryStatus,
   isFinishedStatus,
   isStatusForCategory,
-  normalizeInventoryStatus,
-  type LegacyInventoryStatus,
 } from "./inventoryStatus";
 
 const inventoryCategory = v.union(
@@ -26,15 +23,11 @@ export const list = query({
   handler: async (ctx) => {
     await requireAuthenticatedUser(ctx);
 
-    const items = await ctx.db
+    return await ctx.db
       .query("inventory")
       .withIndex("by_updatedAt")
       .order("desc")
       .collect();
-    return items.map((item) => ({
-      ...item,
-      status: normalizeInventoryStatus(item.category, item.status),
-    }));
   },
 });
 
@@ -105,7 +98,7 @@ export const get = query({
   handler: async (ctx, { id }) => {
     await requireAuthenticatedUser(ctx);
     const item = await ctx.db.get(id);
-    return item ? { ...item, status: normalizeInventoryStatus(item.category, item.status) } : null;
+    return item;
   },
 });
 
@@ -252,52 +245,5 @@ export const update = mutation({
       completedAt,
       updatedAt: Date.now(),
     });
-  },
-});
-
-const legacyStatuses: LegacyInventoryStatus[] = ["pending", "in_progress", "complete"];
-const MIGRATION_BATCH_SIZE = 100;
-
-async function migrateStatusBatch(ctx: MutationCtx) {
-  let migrated = 0;
-  for (const legacyStatus of legacyStatuses) {
-    const remaining = MIGRATION_BATCH_SIZE - migrated;
-    if (remaining === 0) break;
-    const items = await ctx.db
-      .query("inventory")
-      .withIndex("by_status", (q) => q.eq("status", legacyStatus))
-      .take(remaining);
-
-    for (const item of items) {
-      const claim = item.category === "donate"
-        ? await ctx.db.query("marketplaceClaims").withIndex("by_inventoryId", (q) => q.eq("inventoryId", item._id)).first()
-        : null;
-      await ctx.db.patch(item._id, {
-        status: normalizeInventoryStatus(item.category, item.status, Boolean(claim)),
-      });
-      migrated += 1;
-    }
-  }
-  return migrated;
-}
-
-/** Authenticated, idempotent entry point for the one-time legacy status migration. */
-export const migrateLegacyStatuses = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await requireAuthenticatedUser(ctx);
-    await ctx.scheduler.runAfter(0, internal.inventory.migrateLegacyStatusesBatch, {});
-    return null;
-  },
-});
-
-export const migrateLegacyStatusesBatch = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const migrated = await migrateStatusBatch(ctx);
-    if (migrated === MIGRATION_BATCH_SIZE) {
-      await ctx.scheduler.runAfter(0, internal.inventory.migrateLegacyStatusesBatch, {});
-    }
-    return null;
   },
 });

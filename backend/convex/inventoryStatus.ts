@@ -15,12 +15,6 @@ export const inventoryStatus = v.union(
   v.literal("stored"),
 );
 
-export const legacyInventoryStatus = v.union(
-  v.literal("pending"),
-  v.literal("in_progress"),
-  v.literal("complete"),
-);
-
 export type InventoryCategory = "sell" | "ship" | "donate" | "trash" | "store";
 export type InventoryStatus =
   | "for_sale" | "sold"
@@ -28,8 +22,6 @@ export type InventoryStatus =
   | "to_dispose" | "disposed"
   | "to_pack" | "packed" | "shipped"
   | "to_store" | "stored";
-export type LegacyInventoryStatus = "pending" | "in_progress" | "complete";
-
 const statusesByCategory: Record<InventoryCategory, readonly InventoryStatus[]> = {
   sell: ["for_sale", "sold"],
   donate: ["available", "claimed", "donated"],
@@ -48,24 +40,4 @@ export function isStatusForCategory(category: InventoryCategory, status: Invento
 
 export function isFinishedStatus(status: InventoryStatus) {
   return ["sold", "donated", "disposed", "shipped", "stored"].includes(status);
-}
-
-export function normalizeInventoryStatus(
-  category: InventoryCategory,
-  status: InventoryStatus | LegacyInventoryStatus,
-  hasClaim = false,
-): InventoryStatus {
-  if (status !== "pending" && status !== "in_progress" && status !== "complete") return status;
-
-  if (category === "sell") return status === "complete" ? "sold" : "for_sale";
-  if (category === "donate") {
-    if (status === "complete") return "donated";
-    return status === "in_progress" || hasClaim ? "claimed" : "available";
-  }
-  if (category === "trash") return status === "complete" ? "disposed" : "to_dispose";
-  if (category === "ship") {
-    if (status === "complete") return "shipped";
-    return status === "in_progress" ? "packed" : "to_pack";
-  }
-  return status === "complete" ? "stored" : "to_store";
 }

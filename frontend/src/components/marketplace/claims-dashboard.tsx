@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../../../backend/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { sampleItems } from "@/components/items/items-page";
+import type { ItemStatus } from "@/components/items/inventory-types";
 
 type ClaimRow = {
   id: string;
@@ -13,7 +14,7 @@ type ClaimRow = {
   category: "sell" | "donate";
   room?: string;
   quantity: number;
-  status: string;
+  status: ItemStatus;
   estimatedValue?: number;
   soldPrice?: number;
   claimedBy?: string;
@@ -208,8 +209,8 @@ function CategoryBadge({ category }: { category: "sell" | "donate" }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const finished = ["sold", "donated", "disposed", "shipped", "stored", "complete"].includes(status);
-  const active = ["claimed", "in_progress", "packed"].includes(status);
+  const finished = ["sold", "donated", "disposed", "shipped", "stored"].includes(status);
+  const active = ["claimed", "packed"].includes(status);
   return <Badge variant={finished ? "success" : active ? "warning" : "outline"}>{statusLabel(status)}</Badge>;
 }
 
@@ -220,9 +221,13 @@ function statusLabel(status: string) {
     available: "Available",
     claimed: "Claimed",
     donated: "Donated",
-    pending: "To do",
-    in_progress: "In progress",
-    complete: "Done",
+    to_dispose: "To dispose",
+    disposed: "Disposed",
+    to_pack: "To pack",
+    packed: "Packed",
+    shipped: "Shipped",
+    to_store: "To store",
+    stored: "Stored",
   };
   return labels[status] ?? status.replaceAll("_", " ");
 }
@@ -231,7 +236,7 @@ function sortValue(row: ClaimRow, key: SortKey) {
   if (key === "claimedBy") return row.claimedBy ?? "zzzz";
   if (key === "claimedAt") return row.claimedAt ? String(row.claimedAt).padStart(14, "0") : "99999999999999";
   if (key === "category") return row.category === "sell" ? "For sale" : "Donate";
-  if (key === "status") return row.status === "complete" ? "Done" : row.status === "in_progress" ? "In progress" : "To do";
+  if (key === "status") return statusLabel(row.status);
   return row[key];
 }
 

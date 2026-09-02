@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { UserButton } from "@clerk/react";
-import { House, ListTodo, PackageOpen, Plane } from "lucide-react";
+import { ClipboardCheck, House, ListTodo, PackageOpen, Plane } from "lucide-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { StickyNotes } from "@/components/sticky-notes/sticky-notes";
@@ -8,6 +8,7 @@ import { StickyNotes } from "@/components/sticky-notes/sticky-notes";
 const ItemsPage = lazy(() => import("@/components/items/items-page").then((module) => ({ default: module.ItemsPage })));
 const ItemDetailPage = lazy(() => import("@/components/items/item-detail-page").then((module) => ({ default: module.ItemDetailPage })));
 const TodoList = lazy(() => import("@/components/todos/todo-list").then((module) => ({ default: module.TodoList })));
+const ClaimsDashboard = lazy(() => import("@/components/marketplace/claims-dashboard").then((module) => ({ default: module.ClaimsDashboard })));
 
 type Departure = {
   name: string;
@@ -164,7 +165,7 @@ export default function App({
   useSystemTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const page = location.pathname.startsWith("/items") ? "items" : location.pathname.startsWith("/todo") ? "todo" : "home";
+  const page = location.pathname.startsWith("/items") ? "items" : location.pathname.startsWith("/todo") ? "todo" : location.pathname.startsWith("/claims") ? "claims" : "home";
 
   useEffect(() => {
     const legacy = location.hash.match(/^#items(?:-(all|sell|ship|donate|trash|store))?$/);
@@ -196,6 +197,9 @@ export default function App({
               <Link aria-label="Todo" className={`flex items-center gap-2 rounded-lg p-2 text-sm transition-colors sm:px-3 sm:py-1.5 ${page === "todo" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`} to="/todo">
                 <ListTodo className="size-4" /> <span className="hidden sm:inline">Todo</span>
               </Link>
+              <Link aria-label="Claims" className={`flex items-center gap-2 rounded-lg p-2 text-sm transition-colors sm:px-3 sm:py-1.5 ${page === "claims" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`} to="/claims">
+                <ClipboardCheck className="size-4" /> <span className="hidden sm:inline">Claims</span>
+              </Link>
             </nav>
             {showAccountMenu && <UserButton />}
           </div>
@@ -208,6 +212,7 @@ export default function App({
           <Route path="/items/:tab" element={<div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 sm:pt-10"><ItemsPage enabled={convexEnabled} /></div>} />
           <Route path="/item/:itemId" element={<ItemDetailPage enabled={convexEnabled} />} />
           <Route path="/todo" element={<main className="mx-auto w-full max-w-3xl px-6 py-12"><TodoList enabled={convexEnabled} /></main>} />
+          <Route path="/claims" element={<ClaimsDashboard enabled={convexEnabled} />} />
           <Route path="/" element={(
         <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:gap-10 sm:px-6 sm:py-12">
           <h1 className="sr-only">

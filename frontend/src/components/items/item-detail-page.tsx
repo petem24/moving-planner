@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ItemImages } from "./item-images";
 import { loadPreviewItems, savePreviewItem } from "./items-page";
 import type { Category, InventoryItem, InventoryItemUpdate, ItemStatus } from "./inventory-types";
+import { initialStatus, statusesByCategory } from "./inventory-status";
 
 const categories: Array<{ value: Category; label: string; icon: LucideIcon; active: string }> = [
   { value: "sell", label: "Sell", icon: Tag, active: "border-sell bg-sell-subtle text-sell-strong" },
@@ -17,12 +18,6 @@ const categories: Array<{ value: Category; label: string; icon: LucideIcon; acti
   { value: "donate", label: "Donate", icon: Gift, active: "border-donate bg-donate-subtle text-donate-strong" },
   { value: "trash", label: "Trash", icon: Trash2, active: "border-bin bg-bin-subtle text-bin-strong" },
   { value: "store", label: "Store", icon: House, active: "border-keep bg-keep-subtle text-keep-strong" },
-];
-
-const statuses: Array<{ value: ItemStatus; label: string }> = [
-  { value: "pending", label: "To do" },
-  { value: "in_progress", label: "In progress" },
-  { value: "complete", label: "Done" },
 ];
 
 const inputClass = "w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition-shadow placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
@@ -91,6 +86,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
   const [soldPrice, setSoldPrice] = useState(item.soldPrice?.toString() ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const statuses = statusesByCategory[category];
 
   const optional = (value: string) => value.trim() || undefined;
   const optionalNumber = (value: string) => value === "" ? undefined : Number(value);
@@ -141,7 +137,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
 
           <fieldset>
             <legend className="eyebrow mb-3">Status</legend>
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${statuses.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
               {statuses.map((option) => (
                 <button
                   aria-pressed={status === option.value}
@@ -162,7 +158,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
               {categories.map((option) => {
                 const Icon = option.icon;
                 return (
-                  <button aria-pressed={category === option.value} className={cn("flex min-h-16 flex-col items-start justify-between rounded-xl border p-3 text-sm font-medium transition-colors", category === option.value ? option.active : "border-border bg-background text-muted-foreground hover:bg-muted")} key={option.value} onClick={() => setCategory(option.value)} type="button">
+                  <button aria-pressed={category === option.value} className={cn("flex min-h-16 flex-col items-start justify-between rounded-xl border p-3 text-sm font-medium transition-colors", category === option.value ? option.active : "border-border bg-background text-muted-foreground hover:bg-muted")} key={option.value} onClick={() => { setCategory(option.value); setStatus(initialStatus(option.value)); }} type="button">
                     <Icon className="size-4" />{option.label}
                   </button>
                 );

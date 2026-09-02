@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -25,6 +25,7 @@ import { api } from "../../../../backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { ItemForm } from "./item-form";
 import type { Category, InventoryItem, ItemStatus, NewInventoryItem } from "./inventory-types";
+import { finishedStatuses, initialStatus, normalizePreviewItem, statusLabels } from "./inventory-status";
 
 /** The "all" tab is a table like any other, just without a category filter applied. */
 type Tab = "all" | Category;
@@ -38,6 +39,7 @@ type Column = {
 
 type SortDirection = "asc" | "desc";
 type ViewMode = "table" | "grid";
+type StatusFilter = "all" | "active" | "finished";
 type ImageUrlMap = Record<string, string | null>;
 
 const categoryOrder: Category[] = ["sell", "ship", "donate", "trash", "store"];
@@ -96,30 +98,24 @@ const tabMeta: Record<Tab, { label: string; short: string; icon: LucideIcon; tin
 };
 
 export const sampleItems: InventoryItem[] = [
-  { id: "s1", name: "Nintendo Switch", category: "sell", room: "Living Room", quantity: 1, status: "in_progress", estimatedValue: 180, marketplaceLink: "https://www.facebook.com/marketplace" },
-  { id: "s2", name: "Coffee machine", category: "sell", room: "Kitchen", quantity: 1, status: "pending", estimatedValue: 75 },
-  { id: "s3", name: "Couch", category: "sell", room: "Living Room", quantity: 1, status: "pending", estimatedValue: 220 },
-  { id: "s4", name: "TV", category: "sell", room: "Living Room", quantity: 1, status: "complete", owner: "Beth", soldPrice: 140 },
-  { id: "sh1", name: "Record player", category: "ship", room: "Living Room", quantity: 1, status: "pending", owner: "Erin", destination: "October shipment" },
-  { id: "sh2", name: "PC", category: "ship", room: "Office", quantity: 1, status: "in_progress", owner: "Peter", destination: "Spring shipment" },
-  { id: "sh3", name: "Art prints", category: "ship", room: "Living Room", quantity: 6, status: "complete", destination: "Box 04" },
-  { id: "d1", name: "Ivy plant", category: "donate", room: "Living Room", quantity: 1, status: "in_progress", donationLocation: "Beth" },
-  { id: "d2", name: "Computer monitor / iPad", category: "donate", room: "Office", quantity: 1, status: "pending", donationLocation: "Emile", notes: "Give back to Emile" },
-  { id: "d3", name: "Bath towels", category: "donate", room: "Bathroom", quantity: 4, status: "pending", donationLocation: "Charity shop" },
-  { id: "t1", name: "Old cards", category: "trash", room: "Living Room", quantity: 1, status: "pending", destination: "Recycling" },
-  { id: "t2", name: "Vacuum", category: "trash", room: "Hall Closet", quantity: 1, status: "in_progress", destination: "Council tip" },
-  { id: "t3", name: "Mattress", category: "trash", room: "Bedroom", quantity: 1, status: "pending", destination: "Bulky collection" },
-  { id: "st1", name: "Winter coats", category: "store", room: "Hall Closet", quantity: 3, status: "pending", owner: "Peter", destination: "Mum's loft" },
-  { id: "st2", name: "Travel documents", category: "store", room: "Office", quantity: 1, status: "complete", owner: "Peter", destination: "Carry-on" },
+  { id: "s1", name: "Nintendo Switch", category: "sell", room: "Living Room", quantity: 1, status: "for_sale", estimatedValue: 180, marketplaceLink: "https://www.facebook.com/marketplace" },
+  { id: "s2", name: "Coffee machine", category: "sell", room: "Kitchen", quantity: 1, status: "for_sale", estimatedValue: 75 },
+  { id: "s3", name: "Couch", category: "sell", room: "Living Room", quantity: 1, status: "for_sale", estimatedValue: 220 },
+  { id: "s4", name: "TV", category: "sell", room: "Living Room", quantity: 1, status: "sold", owner: "Beth", soldPrice: 140 },
+  { id: "sh1", name: "Record player", category: "ship", room: "Living Room", quantity: 1, status: "to_pack", owner: "Erin", destination: "October shipment" },
+  { id: "sh2", name: "PC", category: "ship", room: "Office", quantity: 1, status: "packed", owner: "Peter", destination: "Spring shipment" },
+  { id: "sh3", name: "Art prints", category: "ship", room: "Living Room", quantity: 6, status: "shipped", destination: "Box 04" },
+  { id: "d1", name: "Ivy plant", category: "donate", room: "Living Room", quantity: 1, status: "claimed", donationLocation: "Beth" },
+  { id: "d2", name: "Computer monitor / iPad", category: "donate", room: "Office", quantity: 1, status: "available", donationLocation: "Emile", notes: "Give back to Emile" },
+  { id: "d3", name: "Bath towels", category: "donate", room: "Bathroom", quantity: 4, status: "available", donationLocation: "Charity shop" },
+  { id: "t1", name: "Old cards", category: "trash", room: "Living Room", quantity: 1, status: "to_dispose", destination: "Recycling" },
+  { id: "t2", name: "Vacuum", category: "trash", room: "Hall Closet", quantity: 1, status: "to_dispose", destination: "Council tip" },
+  { id: "t3", name: "Mattress", category: "trash", room: "Bedroom", quantity: 1, status: "to_dispose", destination: "Bulky collection" },
+  { id: "st1", name: "Winter coats", category: "store", room: "Hall Closet", quantity: 3, status: "to_store", owner: "Peter", destination: "Mum's loft" },
+  { id: "st2", name: "Travel documents", category: "store", room: "Office", quantity: 1, status: "stored", owner: "Peter", destination: "Carry-on" },
 ];
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
-
-const statusLabels: Record<ItemStatus, string> = {
-  pending: "To do",
-  in_progress: "In progress",
-  complete: "Done",
-};
 
 const baseColumns: Column[] = [
   { key: "name", label: "Item", className: "min-w-56", render: (item) => <span className="font-medium text-foreground">{item.name}</span> },
@@ -196,6 +192,10 @@ export function ItemsPage({ enabled }: { enabled: boolean }) {
 function ConnectedItemsPage() {
   const items = useQuery(api.inventory.list);
   const createItem = useMutation(api.inventory.create);
+  const migrateLegacyStatuses = useMutation(api.inventory.migrateLegacyStatuses);
+  useEffect(() => {
+    void migrateLegacyStatuses();
+  }, [migrateLegacyStatuses]);
   const firstImageIds = useMemo(
     () => [...new Set((items ?? []).flatMap((item) => item.images?.slice(0, 1) ?? []))],
     [items],
@@ -237,7 +237,7 @@ function PreviewItemsPage() {
       items={items}
       onCreate={async (item) => {
         setItems((current) => {
-          const next = [{ ...item, id: `preview-${Date.now()}`, status: "pending" as const }, ...current];
+          const next = [{ ...item, id: `preview-${Date.now()}`, status: initialStatus(item.category) }, ...current];
           sessionStorage.setItem("preview-inventory", JSON.stringify(next));
           return next;
         });
@@ -250,7 +250,7 @@ function PreviewItemsPage() {
 export function loadPreviewItems(): InventoryItem[] {
   try {
     const stored = sessionStorage.getItem("preview-inventory");
-    return stored ? JSON.parse(stored) as InventoryItem[] : sampleItems;
+    return stored ? (JSON.parse(stored) as InventoryItem[]).map(normalizePreviewItem) : sampleItems;
   } catch {
     return sampleItems;
   }
@@ -382,7 +382,7 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
   const search = params.get("q") ?? "";
   const room = params.get("room") ?? "all";
   const rawStatus = params.get("status");
-  const status: "all" | ItemStatus = rawStatus === "pending" || rawStatus === "in_progress" || rawStatus === "complete" ? rawStatus : "all";
+  const status: StatusFilter = rawStatus === "active" || rawStatus === "finished" ? rawStatus : "all";
   const rawSortKey = params.get("sort") as keyof InventoryItem | null;
   const sortKey = columns.some((column) => column.key === rawSortKey) ? rawSortKey! : "name";
   const sortDirection: SortDirection = params.get("dir") === "desc" ? "desc" : "asc";
@@ -399,7 +399,7 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
 
   const setSearch = (value: string) => setParam("q", value);
   const setRoom = (value: string) => setParam("room", value, "all");
-  const setStatus = (value: "all" | ItemStatus) => setParam("status", value, "all");
+  const setStatus = (value: StatusFilter) => setParam("status", value, "all");
   const setView = (value: ViewMode) => setParam("view", value, "table");
 
   const rooms = useMemo(() => [...new Set(items.flatMap((item) => item.room ? [item.room] : []))].sort(), [items]);
@@ -407,7 +407,7 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
     const query = search.trim().toLocaleLowerCase();
     return items
       .filter((item) => room === "all" || item.room === room)
-      .filter((item) => status === "all" || item.status === status)
+      .filter((item) => status === "all" || (status === "finished") === finishedStatuses.has(item.status))
       .filter((item) => !query || Object.entries(item).some(([key, value]) =>
         key !== "id" && String(key === "category" ? categoryMeta[value as Category].label : value ?? "").toLocaleLowerCase().includes(query),
       ))
@@ -479,11 +479,10 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
           </label>
           <label className="hidden md:block">
             <span className="sr-only">Filter by status</span>
-            <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" onChange={(event) => setStatus(event.target.value as "all" | ItemStatus)} value={status}>
+            <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" onChange={(event) => setStatus(event.target.value as StatusFilter)} value={status}>
               <option value="all">Any status</option>
-              <option value="pending">To do</option>
-              <option value="in_progress">In progress</option>
-              <option value="complete">Done</option>
+              <option value="active">Active</option>
+              <option value="finished">Finished</option>
             </select>
           </label>
         </div>
@@ -629,10 +628,10 @@ function FilterPopover({
   rooms: string[];
   setRoom: (room: string) => void;
   setSort: (key: keyof InventoryItem) => void;
-  setStatus: (status: "all" | ItemStatus) => void;
+  setStatus: (status: StatusFilter) => void;
   sortDirection: SortDirection;
   sortKey: keyof InventoryItem;
-  status: "all" | ItemStatus;
+  status: StatusFilter;
 }) {
   const activeCount = (room === "all" ? 0 : 1) + (status === "all" ? 0 : 1);
 
@@ -669,9 +668,8 @@ function FilterPopover({
 
           <FilterGroup label="Status">
             <Chip active={status === "all"} onClick={() => setStatus("all")}>Any</Chip>
-            {(Object.keys(statusLabels) as ItemStatus[]).map((itemStatus) => (
-              <Chip active={status === itemStatus} key={itemStatus} onClick={() => setStatus(itemStatus)}>{statusLabels[itemStatus]}</Chip>
-            ))}
+            <Chip active={status === "active"} onClick={() => setStatus("active")}>Active</Chip>
+            <Chip active={status === "finished"} onClick={() => setStatus("finished")}>Finished</Chip>
           </FilterGroup>
 
           <FilterGroup label="Sort by">
@@ -729,7 +727,11 @@ function CategoryTag({ category, compact = false }: { category: Category; compac
 }
 
 function StatusPill({ status }: { status: ItemStatus }) {
-  const classes = status === "complete" ? "bg-keep-subtle text-keep-strong" : status === "in_progress" ? "bg-ship-subtle text-ship-strong" : "bg-muted text-muted-foreground";
+  const classes = finishedStatuses.has(status)
+    ? "bg-keep-subtle text-keep-strong"
+    : status === "claimed" || status === "packed"
+      ? "bg-ship-subtle text-ship-strong"
+      : "bg-muted text-muted-foreground";
   return <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${classes}`}>{statusLabels[status]}</span>;
 }
 

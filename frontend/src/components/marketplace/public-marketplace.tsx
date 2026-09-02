@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check, Gift, ImageIcon, LoaderCircle, PackageOpen, Search, Tag } from "lucide-react";
-import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api } from "../../../../backend/convex/_generated/api";
 import type { Id } from "../../../../backend/convex/_generated/dataModel";
@@ -19,6 +19,7 @@ type PublicItem = {
 };
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
+const marketplaceScrollKey = "please-buy-marketplace-scroll-y";
 
 const sampleItems: PublicItem[] = [
   { id: "s1", name: "Nintendo Switch", category: "sell", quantity: 1, price: 180, imageUrls: [], claimed: false },
@@ -35,6 +36,8 @@ function previewItems(): PublicItem[] {
 }
 
 export function PublicMarketplace({ enabled }: { enabled: boolean }) {
+  const location = useLocation();
+
   useEffect(() => {
     const previousTitle = document.title;
     document.title = "Please Buy";
@@ -47,6 +50,44 @@ export function PublicMarketplace({ enabled }: { enabled: boolean }) {
       media.removeEventListener("change", apply);
     };
   }, []);
+
+  useEffect(() => {
+    if (location.pathname !== "/marketplace") return;
+
+    const params = new URLSearchParams(location.search);
+    const savedScroll = params.get("returnScroll") ?? sessionStorage.getItem(marketplaceScrollKey);
+    if (savedScroll === null) return;
+
+    const scrollY = Number(savedScroll);
+    const clearSavedScroll = () => {
+      sessionStorage.removeItem(marketplaceScrollKey);
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.delete("returnScroll");
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${nextParams.toString() ? `?${nextParams}` : ""}${window.location.hash}`);
+    };
+
+    if (!Number.isFinite(scrollY)) {
+      clearSavedScroll();
+      return;
+    }
+
+    let frame: number | undefined;
+    let attempts = 0;
+    const restore = () => {
+      window.scrollTo(0, scrollY);
+      attempts += 1;
+      if (attempts < 30) {
+        frame = requestAnimationFrame(restore);
+        return;
+      }
+      clearSavedScroll();
+    };
+
+    frame = requestAnimationFrame(restore);
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [location.pathname, location.search]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -77,37 +118,80 @@ function PreviewListing() {
   return <Listing items={previewItems()} />;
 }
 
+type ListingFilter = "all" | "sell" | "donate" | "claimed";
+
+function isListingFilter(value: string | null): value is ListingFilter {
+  return value === "all" || value === "sell" || value === "donate" || value === "claimed";
+}
+
 function Listing({ items }: { items: PublicItem[] }) {
-  const [filter, setFilter] = useState<"all" | "sell" | "donate">("all");
-  const [search, setSearch] = useState("");
-  const shown = useMemo(() => items.filter((item) => {
-    const matchesFilter = filter === "all" || item.category === filter;
-    const matchesSearch = item.name.toLowerCase().includes(search.trim().toLowerCase());
-    return matchesFilter && matchesSearch;
-  }), [filter, items, search]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const filter: ListingFilter = isListingFilter(tabParam) ? tabParam : "all";
+  const search = searchParams.get("search") ?? "";
+  const claimantSearch = searchParams.get("claimant") ?? "";
+
+  const updateParam = (key: string, value: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("returnScroll");
+    if (value) nextParams.set(key, value);
+    else nextParams.delete(key);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const listingSearchParams = new URLSearchParams(searchParams);
+  listingSearchParams.delete("returnScroll");
+  const marketplaceSearch = listingSearchParams.toString() ? `?${listingSearchParams}` : "";
+  const counts = useMemo(() => {
+    const available = items.filter((item) => !item.claimed);
+    return {
+      all: available.length,
+      sell: available.filter((item) => item.category === "sell").length,
+      donate: available.filter((item) => item.category === "donate").length,
+      claimed: items.filter((item) => item.claimed).length,
+    };
+  }, [items]);
+  const shown = useMemo(() => {
+    const query = (filter === "claimed" ? claimantSearch : search).trim().toLowerCase();
+
+    return items.filter((item) => {
+      const matchesAvailability = filter === "claimed" ? item.claimed : !item.claimed;
+      const matchesCategory = filter === "all" || filter === "claimed" || item.category === filter;
+      const matchesSearch = filter === "claimed"
+        ? (item.claimedBy ?? "").toLowerCase().includes(query)
+        : item.name.toLowerCase().includes(query);
+      return matchesAvailability && matchesCategory && matchesSearch;
+    });
+  }, [claimantSearch, filter, items, search]);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       <h1 className="sr-only">Items for sale or free</h1>
       <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex gap-2" role="group" aria-label="Filter items">
-          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>All <span className="opacity-60">{items.length}</span></FilterButton>
-          <FilterButton active={filter === "sell"} onClick={() => setFilter("sell")}><Tag className="size-3.5" /> For sale</FilterButton>
-          <FilterButton active={filter === "donate"} onClick={() => setFilter("donate")}><Gift className="size-3.5" /> Free</FilterButton>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter items">
+          <FilterButton active={filter === "all"} onClick={() => updateParam("tab", "")}>All <span className="opacity-60">{counts.all}</span></FilterButton>
+          <FilterButton active={filter === "sell"} onClick={() => updateParam("tab", "sell")}><Tag className="size-3.5" /> For sale <span className="opacity-60">{counts.sell}</span></FilterButton>
+          <FilterButton active={filter === "donate"} onClick={() => updateParam("tab", "donate")}><Gift className="size-3.5" /> Free <span className="opacity-60">{counts.donate}</span></FilterButton>
+          <FilterButton active={filter === "claimed"} onClick={() => updateParam("tab", "claimed")}><Check className="size-3.5" /> Claimed <span className="opacity-60">{counts.claimed}</span></FilterButton>
         </div>
         <label className="relative block sm:w-64">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <span className="sr-only">Search items</span>
-          <input className="h-10 w-full rounded-xl border border-input bg-card pr-3 pl-9 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20" onChange={(event) => setSearch(event.target.value)} placeholder="Search items" value={search} />
+          <span className="sr-only">{filter === "claimed" ? "Filter claimed items by person" : "Search items"}</span>
+          <input
+            className="h-10 w-full rounded-xl border border-input bg-card pr-3 pl-9 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20"
+            onChange={(event) => updateParam(filter === "claimed" ? "claimant" : "search", event.target.value)}
+            placeholder={filter === "claimed" ? "Filter by claimant name" : "Search items"}
+            value={filter === "claimed" ? claimantSearch : search}
+          />
         </label>
       </div>
 
       {shown.length ? (
         <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4">
-          {shown.map((item) => <MarketplaceCard item={item} key={item.id} />)}
+          {shown.map((item) => <MarketplaceCard item={item} key={item.id} marketplaceSearch={marketplaceSearch} />)}
         </div>
       ) : (
-        <div className="grid min-h-64 place-items-center text-center"><div><PackageOpen className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">Nothing here right now</p><p className="mt-1 text-sm text-muted-foreground">Try another filter or search.</p></div></div>
+        <div className="grid min-h-64 place-items-center text-center"><div><PackageOpen className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">{filter === "claimed" && !claimantSearch.trim() ? "Nothing has been claimed yet" : "Nothing here right now"}</p><p className="mt-1 text-sm text-muted-foreground">{filter === "claimed" ? "Try another claimant name." : "Try another filter or search."}</p></div></div>
       )}
     </main>
   );
@@ -117,9 +201,20 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
   return <button aria-pressed={active} className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`} onClick={onClick} type="button">{children}</button>;
 }
 
-function MarketplaceCard({ item }: { item: PublicItem }) {
+function MarketplaceCard({ item, marketplaceSearch }: { item: PublicItem; marketplaceSearch: string }) {
+  const navigate = useNavigate();
+
+  const openItem = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    sessionStorage.setItem(marketplaceScrollKey, String(window.scrollY));
+    const itemSearch = new URLSearchParams(marketplaceSearch);
+    itemSearch.set("returnScroll", String(window.scrollY));
+    navigate(`/marketplace/${item.id}?${itemSearch.toString()}`);
+  };
+
   return (
-    <Link className="group block min-w-0" to={`/marketplace/${item.id}`}>
+    <Link className="group block min-w-0" onClick={openItem} to={`/marketplace/${item.id}${marketplaceSearch}`}>
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted sm:rounded-2xl">
         {item.imageUrls[0] ? <img alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" loading="lazy" src={item.imageUrls[0]} /> : <div className={`grid h-full place-items-center ${item.category === "sell" ? "bg-sell-subtle text-sell-strong" : "bg-donate-subtle text-donate-strong"}`}><ImageIcon className="size-7 opacity-50" /></div>}
         <span className={`absolute top-2 left-2 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur ${item.category === "sell" ? "bg-card/90 text-sell-strong" : "bg-primary text-primary-foreground"}`}>{item.category === "sell" ? (item.price === undefined ? "Price TBC" : money.format(item.price)) : "Free"}</span>
@@ -128,7 +223,7 @@ function MarketplaceCard({ item }: { item: PublicItem }) {
       <h2 className="mt-2.5 truncate font-medium group-hover:text-primary">{item.name}</h2>
       <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{item.quantity > 1 ? `${item.quantity} available` : item.category === "sell" ? "For sale" : "Free"}</span>
-        {item.claimed && <span className="shrink-0 font-medium text-foreground">Claimed</span>}
+        {item.claimed && <span className="shrink-0 truncate font-medium text-foreground">{item.claimedBy ? `Claimed by ${item.claimedBy}` : "Claimed"}</span>}
       </div>
     </Link>
   );
@@ -157,6 +252,7 @@ function PreviewDetail() {
 }
 
 function Detail({ item, onClaim }: { item: PublicItem; onClaim: (name: string) => Promise<void> }) {
+  const location = useLocation();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +268,7 @@ function Detail({ item, onClaim }: { item: PublicItem; onClaim: (name: string) =
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <Link className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground" to="/marketplace"><ArrowLeft className="size-4" /> Back to everything</Link>
+      <Link className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground" to={{ pathname: "/marketplace", search: location.search }}><ArrowLeft className="size-4" /> Back to everything</Link>
       <div className="grid gap-7 lg:grid-cols-[1.35fr_0.65fr] lg:gap-10">
         <section>
           <div className="overflow-hidden rounded-2xl bg-muted">

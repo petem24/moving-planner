@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Check, Gift, ImageIcon, LoaderCircle, PackageOpen, Search, Tag } from "lucide-react";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import { ArrowLeft, Check, Gift, ImageIcon, LoaderCircle, Maximize2, PackageOpen, Search, Tag } from "lucide-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api } from "../../../../backend/convex/_generated/api";
@@ -256,6 +258,8 @@ function Detail({ item, onClaim }: { item: PublicItem; onClaim: (name: string) =
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const slides = useMemo(() => item.imageUrls.map((src) => ({ src, alt: `Photo of ${item.name}` })), [item.imageUrls, item.name]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -272,9 +276,41 @@ function Detail({ item, onClaim }: { item: PublicItem; onClaim: (name: string) =
       <div className="grid gap-7 lg:grid-cols-[1.35fr_0.65fr] lg:gap-10">
         <section>
           <div className="overflow-hidden rounded-2xl bg-muted">
-            {item.imageUrls[0] ? <img alt={`Photo of ${item.name}`} className="aspect-[4/3] w-full object-cover" src={item.imageUrls[0]} /> : <div className={`grid aspect-[4/3] place-items-center ${item.category === "sell" ? "bg-sell-subtle text-sell-strong" : "bg-donate-subtle text-donate-strong"}`}><ImageIcon className="size-12 opacity-40" /></div>}
+            {item.imageUrls[0] ? (
+              <button
+                aria-label={`Open photo of ${item.name} in gallery`}
+                className="group relative block w-full cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+                onClick={() => setLightboxIndex(0)}
+                type="button"
+              >
+                <img alt={`Photo of ${item.name}`} className="block h-auto w-full object-contain" src={item.imageUrls[0]} />
+                <span aria-hidden="true" className="absolute right-3 bottom-3 grid size-9 place-items-center rounded-full bg-card/90 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <Maximize2 className="size-4" />
+                </span>
+              </button>
+            ) : <div className={`grid aspect-[4/3] place-items-center ${item.category === "sell" ? "bg-sell-subtle text-sell-strong" : "bg-donate-subtle text-donate-strong"}`}><ImageIcon className="size-12 opacity-40" /></div>}
           </div>
-          {item.imageUrls.length > 1 && <div className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-5">{item.imageUrls.slice(1).map((url, index) => <a href={url} key={url} rel="noreferrer" target="_blank"><img alt={`${item.name}, photo ${index + 2}`} className="aspect-square w-full rounded-xl object-cover" src={url} /></a>)}</div>}
+          {item.imageUrls.length > 1 && <div className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-5">{item.imageUrls.slice(1).map((url, index) => (
+            <button
+              aria-label={`Open photo ${index + 2} of ${item.name} in gallery`}
+              className="group relative block h-fit w-full overflow-hidden rounded-xl bg-muted text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              key={url}
+              onClick={() => setLightboxIndex(index + 1)}
+              type="button"
+            >
+              <img alt={`${item.name}, photo ${index + 2}`} className="block h-auto w-full object-contain" src={url} />
+              <span aria-hidden="true" className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-card/90 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <Maximize2 className="size-3.5" />
+              </span>
+            </button>
+          ))}</div>}
+          <Lightbox
+            carousel={{ imageFit: "contain" }}
+            close={() => setLightboxIndex(-1)}
+            index={Math.max(lightboxIndex, 0)}
+            open={lightboxIndex >= 0}
+            slides={slides}
+          />
         </section>
 
         <aside className="lg:pt-2">

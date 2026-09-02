@@ -362,6 +362,7 @@ function ItemsWorkspace({ items, imageUrls = {}, onCreate, preview = false }: { 
           isSaving={isSaving}
           onCancel={closeForm}
           onSave={saveItem}
+          preview={preview}
         />
       )}
     </main>
@@ -401,7 +402,7 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
   const setStatus = (value: "all" | ItemStatus) => setParam("status", value, "all");
   const setView = (value: ViewMode) => setParam("view", value, "table");
 
-  const rooms = useMemo(() => [...new Set(items.map((item) => item.room))].sort(), [items]);
+  const rooms = useMemo(() => [...new Set(items.flatMap((item) => item.room ? [item.room] : []))].sort(), [items]);
   const filteredItems = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return items
@@ -567,7 +568,7 @@ function ItemRow({ item, onOpen, showCategory = false }: { item: InventoryItem; 
         <p className="truncate font-medium text-foreground">{item.name}</p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
           {showCategory && <CategoryTag category={item.category} compact />}
-          {item.room}
+          {item.room ?? "No room"}
           {item.quantity > 1 && <> <span aria-hidden="true">·</span> <span className="numeric">×{item.quantity}</span></>}
         </p>
       </div>
@@ -601,7 +602,7 @@ function ItemGridCard({ imageUrls, item, onOpen, showCategory = false }: { image
         <p className="truncate font-medium text-foreground">{item.name}</p>
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           {showCategory && <CategoryTag category={item.category} compact />}
-          <span className="truncate">{item.room}</span>
+          <span className="truncate">{item.room ?? "No room"}</span>
           {item.quantity > 1 && <span className="numeric shrink-0">×{item.quantity}</span>}
         </div>
       </div>

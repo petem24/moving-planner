@@ -29,8 +29,9 @@ export const create = mutation({
   args: {
     name: v.string(),
     category: inventoryCategory,
-    room: v.string(),
+    room: v.optional(v.string()),
     quantity: v.number(),
+    images: v.optional(v.array(v.id("_storage"))),
     marketplaceLink: v.optional(v.string()),
     donationLocation: v.optional(v.string()),
     owner: v.optional(v.string()),
@@ -42,15 +43,26 @@ export const create = mutation({
     await requireAuthenticatedUser(ctx);
 
     const name = args.name.trim();
-    const room = args.room.trim();
+    const room = args.room?.trim() || undefined;
 
     if (!name) throw new Error("Name cannot be empty");
-    if (!room) throw new Error("Room cannot be empty");
     if (!Number.isInteger(args.quantity) || args.quantity < 1) {
       throw new Error("Quantity must be a positive whole number");
     }
     if (args.estimatedValue !== undefined && (!Number.isFinite(args.estimatedValue) || args.estimatedValue < 0)) {
       throw new Error("Asking price cannot be negative");
+    }
+
+    const images = [...new Set(args.images ?? [])];
+    if (images.length > MAX_IMAGES_PER_ITEM) {
+      throw new Error(`Maximum of ${MAX_IMAGES_PER_ITEM} photos per item`);
+    }
+    for (const storageId of images) {
+      const file = await ctx.db.system.get("_storage", storageId);
+      if (!file) throw new Error("Photo upload not found");
+      if (!file.contentType?.startsWith("image/")) {
+        throw new Error("Only image uploads can be attached to an item");
+      }
     }
 
     const now = Date.now();
@@ -61,6 +73,7 @@ export const create = mutation({
       category: args.category,
       room,
       quantity: args.quantity,
+      images: images.length > 0 ? images : undefined,
       status: "pending",
       marketplaceLink: optionalText(args.marketplaceLink),
       donationLocation: optionalText(args.donationLocation),
@@ -161,7 +174,7 @@ export const update = mutation({
     id: v.id("inventory"),
     name: v.string(),
     category: inventoryCategory,
-    room: v.string(),
+    room: v.optional(v.string()),
     quantity: v.number(),
     status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("complete")),
     marketplaceLink: v.optional(v.string()),
@@ -179,9 +192,8 @@ export const update = mutation({
     if (!existing) throw new Error("Item not found");
 
     const name = args.name.trim();
-    const room = args.room.trim();
+    const room = args.room?.trim() || undefined;
     if (!name) throw new Error("Name cannot be empty");
-    if (!room) throw new Error("Room cannot be empty");
     if (!Number.isInteger(args.quantity) || args.quantity < 1) {
       throw new Error("Quantity must be a positive whole number");
     }

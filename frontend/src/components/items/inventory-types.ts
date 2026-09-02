@@ -8,7 +8,7 @@ export type InventoryItem = {
   id: string;
   name: string;
   category: Category;
-  room: string;
+  room?: string;
   quantity: number;
   status: ItemStatus;
   marketplaceLink?: string;

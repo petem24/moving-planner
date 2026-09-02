@@ -80,7 +80,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
   const [category, setCategory] = useState(item.category);
   const [status, setStatus] = useState(item.status);
   const [name, setName] = useState(item.name);
-  const [room, setRoom] = useState(item.room);
+  const [room, setRoom] = useState(item.room ?? "");
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [notes, setNotes] = useState(item.notes ?? "");
   const [owner, setOwner] = useState(item.owner ?? "");
@@ -103,7 +103,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
       await onSave({
         name: name.trim(),
         category,
-        room: room.trim(),
+        room: optional(room),
         quantity: Number(quantity),
         status,
         notes: optional(notes),
@@ -174,7 +174,7 @@ function ItemEditor({ item, onSave, preview = false }: { item: InventoryItem; on
             <legend className="eyebrow mb-3">Item</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field className="sm:col-span-2" id="detail-name" label="Item name"><input className={inputClass} id="detail-name" maxLength={120} onChange={(event) => setName(event.target.value)} required value={name} /></Field>
-              <Field id="detail-room" label="Room"><input className={inputClass} id="detail-room" maxLength={80} onChange={(event) => setRoom(event.target.value)} required value={room} /></Field>
+              <Field id="detail-room" label="Room"><input className={inputClass} id="detail-room" maxLength={80} onChange={(event) => setRoom(event.target.value)} placeholder="Optional" value={room} /></Field>
               <Field id="detail-quantity" label="Quantity"><input className={inputClass} id="detail-quantity" min="1" onChange={(event) => setQuantity(event.target.value)} required step="1" type="number" value={quantity} /></Field>
             </div>
           </fieldset>

@@ -11,7 +11,8 @@ export default defineSchema({
       v.literal("trash"),
       v.literal("store"),
     ),
-    room: v.string(),
+    // Optional so items can be captured quickly without deciding on a room.
+    room: v.optional(v.string()),
     quantity: v.number(),
     status: v.union(
       v.literal("pending"),

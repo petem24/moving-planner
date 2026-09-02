@@ -12,7 +12,8 @@ export default defineSchema({
       v.literal("trash"),
       v.literal("store"),
     ),
-    room: v.string(),
+    // Optional so items can be captured quickly without deciding on a room.
+    room: v.optional(v.string()),
     quantity: v.number(),
     // Legacy values remain accepted during the rolling data migration. Remove
     // legacyInventoryStatus after migrateLegacyStatuses has rewritten all rows.

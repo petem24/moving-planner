@@ -1,14 +1,18 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Gift, House, LoaderCircle, PackagePlus, Ship, Tag, Trash2, X, type LucideIcon } from "lucide-react";
 import { Dialog } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
+import type { Id } from "../../../../backend/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 
 import type { Category, NewInventoryItem } from "./inventory-types";
+import { NewItemPhotos } from "./item-images";
 
 type ItemFormProps = {
   defaultCategory: Category;
+  /** Sample mode has no Convex connection, so photo uploads are unavailable. */
+  preview?: boolean;
   error: string | null;
   isSaving: boolean;
   onCancel: () => void;
@@ -28,7 +32,7 @@ const inputClass =
 
 const fieldLabel = "mb-1.5 block text-xs font-medium text-foreground";
 
-export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }: ItemFormProps) {
+export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave, preview = false }: ItemFormProps) {
   const [category, setCategory] = useState(defaultCategory);
   const [name, setName] = useState("");
   const [room, setRoom] = useState("");
@@ -39,6 +43,8 @@ export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }:
   const [donationLocation, setDonationLocation] = useState("");
   const [marketplaceLink, setMarketplaceLink] = useState("");
   const [estimatedValue, setEstimatedValue] = useState("");
+  const [images, setImages] = useState<Array<Id<"_storage">>>([]);
+  const imagesCommittedRef = useRef(false);
 
   const optional = (value: string) => value.trim() || undefined;
 
@@ -48,9 +54,10 @@ export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }:
     const item: NewInventoryItem = {
       name: name.trim(),
       category,
-      room: room.trim(),
+      room: optional(room),
       quantity: Number(quantity),
       notes: optional(notes),
+      images,
     };
 
     if (category === "sell") {
@@ -65,6 +72,7 @@ export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }:
     }
 
     await onSave(item);
+    imagesCommittedRef.current = true;
   };
 
   const switchCategory = (nextCategory: Category) => {
@@ -138,8 +146,8 @@ export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }:
                     <input autoFocus className={inputClass} id="item-name" maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="e.g. Coffee machine" required value={name} />
                   </div>
                   <div>
-                    <label className={fieldLabel} htmlFor="item-room">Room</label>
-                    <input className={inputClass} id="item-room" list="room-suggestions" maxLength={80} onChange={(event) => setRoom(event.target.value)} placeholder="e.g. Kitchen" required value={room} />
+                    <label className={fieldLabel} htmlFor="item-room">Room <Optional /></label>
+                    <input className={inputClass} id="item-room" list="room-suggestions" maxLength={80} onChange={(event) => setRoom(event.target.value)} placeholder="e.g. Kitchen" value={room} />
                     <datalist id="room-suggestions">
                       {["Living Room", "Kitchen", "Office", "Bathroom", "Hall Closet", "Hallway", "Bedroom"].map((suggestion) => <option key={suggestion} value={suggestion} />)}
                     </datalist>
@@ -180,6 +188,8 @@ export function ItemForm({ defaultCategory, error, isSaving, onCancel, onSave }:
                   {category === "donate" && <OptionalField id="item-donation" label="Going to" onChange={setDonationLocation} placeholder="Beth, charity shop…" value={donationLocation} />}
                 </div>
               </fieldset>
+
+              {!preview && <NewItemPhotos committedRef={imagesCommittedRef} onChange={setImages} storageIds={images} />}
 
               <div>
                 <label className={fieldLabel} htmlFor="item-notes">Notes <Optional /></label>

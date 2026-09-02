@@ -39,4 +39,4 @@ VITE_CLERK_PUBLISHABLE_KEY
 The Convex production deployment must also have `CLERK_JWT_ISSUER_DOMAIN` and
 `ALLOWED_USER_EMAILS` configured as described in
 [`backend/README.md`](backend/README.md). The Worker is deployed to
-`move.bingebox.today`, matching the application domain configured in Clerk.
+`buy-my-things.online`, matching the application domain configured in Clerk.

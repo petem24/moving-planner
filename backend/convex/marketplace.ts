@@ -1,6 +1,7 @@
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { requireAuthenticatedUser } from "./auth";
 
 function isUnavailable(item: Doc<"inventory">) {
   return item.status === "complete" || item.status === "sold" || item.status === "donated";
@@ -72,6 +73,38 @@ export const get = query({
       isUnavailable(item)
     ) return null;
     return await publicItem(ctx, item);
+  },
+});
+
+/** Internal move-planner view of every sell/donate item and its claimant. */
+export const claimsDashboard = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAuthenticatedUser(ctx);
+
+    const inventory = await ctx.db.query("inventory").collect();
+    const claims = await ctx.db.query("marketplaceClaims").collect();
+    const claimsByInventoryId = new Map(
+      claims.map((claim) => [claim.inventoryId, claim]),
+    );
+
+    return inventory
+      .filter((item) => item.category === "sell" || item.category === "donate")
+      .map((item) => {
+        const claim = claimsByInventoryId.get(item._id);
+        return {
+          id: item._id,
+          name: item.name,
+          category: item.category as "sell" | "donate",
+          room: item.room,
+          quantity: item.quantity,
+          status: item.status,
+          estimatedValue: item.estimatedValue,
+          soldPrice: item.soldPrice,
+          claimedBy: claim?.name,
+          claimedAt: claim?.createdAt,
+        };
+      });
   },
 });
 

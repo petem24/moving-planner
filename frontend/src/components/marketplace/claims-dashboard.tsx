@@ -6,15 +6,14 @@ import { Link } from "react-router-dom";
 import { api } from "../../../../backend/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { sampleItems } from "@/components/items/items-page";
-import type { ItemStatus } from "@/components/items/inventory-types";
 
 type ClaimRow = {
   id: string;
   name: string;
   category: "sell" | "donate";
-  room: string;
+  room?: string;
   quantity: number;
-  status: ItemStatus;
+  status: string;
   estimatedValue?: number;
   soldPrice?: number;
   claimedBy?: string;
@@ -93,7 +92,7 @@ function ClaimsTable({ rows, preview = false }: { rows: ClaimRow[]; preview?: bo
     return rows
       .filter((row) => categoryFilter === "all" || row.category === categoryFilter)
       .filter((row) => viewFilter === "all" || (viewFilter === "claimed" ? Boolean(row.claimedBy) : !row.claimedBy))
-      .filter((row) => !query || [row.name, row.room, row.claimedBy, row.category].some((value) => value?.toLocaleLowerCase().includes(query)))
+      .filter((row) => !query || [row.name, row.room, row.claimedBy, row.category].some((value) => (value ?? "").toLocaleLowerCase().includes(query)))
       .sort((first, second) => {
         const firstValue = sortValue(first, sortKey);
         const secondValue = sortValue(second, sortKey);
@@ -167,7 +166,7 @@ function ClaimsTable({ rows, preview = false }: { rows: ClaimRow[]; preview?: bo
               <tbody>
                 {filteredRows.map((row) => (
                   <tr className="border-b border-border/70 last:border-0 hover:bg-muted/35" key={row.id}>
-                    <td className="px-4 py-3"><Link className="font-medium text-foreground hover:text-primary hover:underline" to={`/item/${row.id}`}>{row.name}</Link><span className="mt-0.5 block text-xs text-muted-foreground">{row.room}</span></td>
+                    <td className="px-4 py-3"><Link className="font-medium text-foreground hover:text-primary hover:underline" to={`/item/${row.id}`}>{row.name}</Link><span className="mt-0.5 block text-xs text-muted-foreground">{row.room ?? "No room"}</span></td>
                     <td className="px-4 py-3"><CategoryBadge category={row.category} /></td>
                     <td className="px-4 py-3 numeric text-muted-foreground">{row.quantity}</td>
                     <td className="px-4 py-3">{row.claimedBy ? <span className="font-medium text-foreground">{row.claimedBy}</span> : <span className="text-muted-foreground">Not claimed</span>}</td>
@@ -208,8 +207,24 @@ function CategoryBadge({ category }: { category: "sell" | "donate" }) {
   return <Badge variant={category}>{category === "sell" ? "For sale" : "Donate"}</Badge>;
 }
 
-function StatusBadge({ status }: { status: ItemStatus }) {
-  return <Badge variant={status === "complete" ? "success" : status === "in_progress" ? "warning" : "outline"}>{status === "complete" ? "Done" : status === "in_progress" ? "In progress" : "To do"}</Badge>;
+function StatusBadge({ status }: { status: string }) {
+  const finished = ["sold", "donated", "disposed", "shipped", "stored", "complete"].includes(status);
+  const active = ["claimed", "in_progress", "packed"].includes(status);
+  return <Badge variant={finished ? "success" : active ? "warning" : "outline"}>{statusLabel(status)}</Badge>;
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    for_sale: "For sale",
+    sold: "Sold",
+    available: "Available",
+    claimed: "Claimed",
+    donated: "Donated",
+    pending: "To do",
+    in_progress: "In progress",
+    complete: "Done",
+  };
+  return labels[status] ?? status.replaceAll("_", " ");
 }
 
 function sortValue(row: ClaimRow, key: SortKey) {

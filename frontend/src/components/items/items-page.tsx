@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -25,7 +25,7 @@ import { api } from "../../../../backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { ItemForm } from "./item-form";
 import type { Category, InventoryItem, ItemStatus, NewInventoryItem } from "./inventory-types";
-import { finishedStatuses, initialStatus, normalizePreviewItem, statusLabels } from "./inventory-status";
+import { finishedStatuses, initialStatus, statusLabels } from "./inventory-status";
 
 /** The "all" tab is a table like any other, just without a category filter applied. */
 type Tab = "all" | Category;
@@ -192,10 +192,6 @@ export function ItemsPage({ enabled }: { enabled: boolean }) {
 function ConnectedItemsPage() {
   const items = useQuery(api.inventory.list);
   const createItem = useMutation(api.inventory.create);
-  const migrateLegacyStatuses = useMutation(api.inventory.migrateLegacyStatuses);
-  useEffect(() => {
-    void migrateLegacyStatuses();
-  }, [migrateLegacyStatuses]);
   const firstImageIds = useMemo(
     () => [...new Set((items ?? []).flatMap((item) => item.images?.slice(0, 1) ?? []))],
     [items],
@@ -250,7 +246,7 @@ function PreviewItemsPage() {
 export function loadPreviewItems(): InventoryItem[] {
   try {
     const stored = sessionStorage.getItem("preview-inventory");
-    return stored ? (JSON.parse(stored) as InventoryItem[]).map(normalizePreviewItem) : sampleItems;
+    return stored ? JSON.parse(stored) as InventoryItem[] : sampleItems;
   } catch {
     return sampleItems;
   }

@@ -5,7 +5,7 @@
   "workers_dev": false,
   "routes": [
     {
-      "pattern": "move.bingebox.today",
+      "pattern": "buy-my-things.online",
       "custom_domain": true
     }
   ],

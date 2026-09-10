@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Download,
   ExternalLink,
   Gift,
   House,
@@ -24,6 +25,7 @@ import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "
 import { api } from "../../../../backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { ItemForm } from "./item-form";
+import { MarketplaceExportDialog } from "./marketplace-export-dialog";
 import type { Category, InventoryItem, ItemStatus, NewInventoryItem } from "./inventory-types";
 import { finishedStatuses, initialStatus, statusLabels } from "./inventory-status";
 
@@ -349,7 +351,7 @@ function ItemsWorkspace({ items, imageUrls = {}, onCreate, preview = false }: { 
         <p className="text-xs text-muted-foreground">Sample items until the inventory database is connected. Items you add here last for this session.</p>
       )}
 
-      <InventoryTable imageUrls={imageUrls} items={itemsForTab(items, activeTab)} tab={activeTab} />
+      <InventoryTable imageUrls={imageUrls} items={itemsForTab(items, activeTab)} preview={preview} tab={activeTab} />
 
       {showForm && (
         <ItemForm
@@ -369,7 +371,7 @@ function itemsForTab(items: InventoryItem[], tab: Tab) {
   return tab === "all" ? items : items.filter((item) => item.category === tab);
 }
 
-function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; items: InventoryItem[]; tab: Tab }) {
+function InventoryTable({ imageUrls, items, preview = false, tab }: { imageUrls: ImageUrlMap; items: InventoryItem[]; preview?: boolean; tab: Tab }) {
   const meta = tabMeta[tab];
   const columns = columnsByTab[tab];
   const [params, setParams] = useSearchParams();
@@ -383,6 +385,8 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
   const sortKey = columns.some((column) => column.key === rawSortKey) ? rawSortKey! : "name";
   const sortDirection: SortDirection = params.get("dir") === "desc" ? "desc" : "asc";
   const view: ViewMode = params.get("view") === "grid" ? "grid" : "table";
+  const [showMarketplaceExport, setShowMarketplaceExport] = useState(false);
+  const marketplaceItems = items.filter((item) => item.category === "sell" && item.status === "for_sale");
 
   const setParam = (key: string, value: string, defaultValue = "") => {
     setParams((current) => {
@@ -465,6 +469,14 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
               <LayoutGrid className="size-4" />
             </button>
           </div>
+
+          {tab === "sell" && marketplaceItems.length > 0 && (
+            <Button onClick={() => setShowMarketplaceExport(true)} type="button" variant="outline">
+              <Download />
+              <span className="hidden sm:inline">Export for Facebook</span>
+              <span className="sm:hidden">Export</span>
+            </Button>
+          )}
 
           <label className="hidden md:block">
             <span className="sr-only">Filter by room</span>
@@ -550,6 +562,9 @@ function InventoryTable({ imageUrls, items, tab }: { imageUrls: ImageUrlMap; ite
           <span className="numeric">{filteredItems.reduce((total, item) => total + item.quantity, 0)} items</span>
         </footer>
       </div>
+      {showMarketplaceExport && (
+        <MarketplaceExportDialog items={marketplaceItems} onClose={() => setShowMarketplaceExport(false)} preview={preview} />
+      )}
     </section>
   );
 }
